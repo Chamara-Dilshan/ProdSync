@@ -1,0 +1,238 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useAuth } from "@/lib/context/AuthContext"
+import { Header } from "@/components/dashboard/Header"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { useToast } from "@/components/ui/use-toast"
+import { ProductList } from "@/components/products/ProductList"
+import { ProductForm } from "@/components/products/ProductForm"
+import { ExcelUploader } from "@/components/products/ExcelUploader"
+import {
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  bulkCreateProducts,
+} from "@/lib/firebase/firestore"
+import { Product } from "@/types"
+import { Plus, Loader2 } from "lucide-react"
+
+export default function ProductsPage() {
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (!user) return
+      try {
+        const data = await getProducts(user.uid)
+        setProducts(data)
+      } catch (error: any) {
+        console.error("Failed to load products:", error)
+        toast({
+          variant: "destructive",
+          title: "Error loading products",
+          description:
+            error.message ||
+            "Failed to load products. Please check your Firebase configuration.",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProducts()
+  }, [user, toast])
+
+  const handleAddProduct = () => {
+    setEditingProduct(null)
+    setIsDialogOpen(true)
+  }
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product)
+    setIsDialogOpen(true)
+  }
+
+  const handleSubmitProduct = async (
+    data: Omit<Product, "id" | "createdAt" | "updatedAt">
+  ) => {
+    if (!user) return
+
+    setIsSubmitting(true)
+    try {
+      if (editingProduct) {
+        await updateProduct(user.uid, editingProduct.id, data)
+        setProducts((prev) =>
+          prev.map((p) => (p.id === editingProduct.id ? { ...p, ...data } : p))
+        )
+        toast({
+          title: "Product updated",
+          description: "Your product has been updated successfully.",
+        })
+      } else {
+        const id = await createProduct(user.uid, data)
+        setProducts((prev) => [
+          {
+            id,
+            ...data,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          } as Product,
+          ...prev,
+        ])
+        toast({
+          title: "Product added",
+          description: "Your product has been added successfully.",
+        })
+      }
+      setIsDialogOpen(false)
+    } catch (error: any) {
+      console.error("Failed to save product:", error)
+      toast({
+        variant: "destructive",
+        title: "Error saving product",
+        description:
+          error.message || "Failed to save product. Please try again.",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!user) return
+
+    setDeletingId(productId)
+    try {
+      await deleteProduct(user.uid, productId)
+      setProducts((prev) => prev.filter((p) => p.id !== productId))
+      toast({
+        title: "Product deleted",
+        description: "The product has been removed.",
+      })
+    } catch (error: any) {
+      console.error("Failed to delete product:", error)
+      toast({
+        variant: "destructive",
+        title: "Error deleting product",
+        description:
+          error.message || "Failed to delete product. Please try again.",
+      })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const handleImportProducts = async (
+    importedProducts: Omit<Product, "id" | "createdAt" | "updatedAt">[]
+  ) => {
+    if (!user) return
+
+    setIsImporting(true)
+    try {
+      const ids = await bulkCreateProducts(user.uid, importedProducts)
+      const newProducts = importedProducts.map((p, i) => ({
+        id: ids[i],
+        ...p,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })) as Product[]
+
+      setProducts((prev) => [...newProducts, ...prev])
+      toast({
+        title: "Import successful",
+        description: `${importedProducts.length} products have been imported.`,
+      })
+    } catch (error: any) {
+      console.error("Failed to import products:", error)
+      toast({
+        variant: "destructive",
+        title: "Import failed",
+        description:
+          error.message || "Failed to import products. Please try again.",
+      })
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  return (
+    <div>
+      <Header
+        title="Products"
+        description="Manage your product catalog for AI-generated responses"
+      />
+
+      <div className="p-8">
+        <Tabs defaultValue="list">
+          <div className="flex justify-between items-center mb-6">
+            <TabsList>
+              <TabsTrigger value="list">Product List</TabsTrigger>
+              <TabsTrigger value="import">Import from Excel</TabsTrigger>
+            </TabsList>
+
+            <Button onClick={handleAddProduct}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
+          </div>
+
+          <TabsContent value="list">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <ProductList
+                products={products}
+                onEdit={handleEditProduct}
+                onDelete={handleDeleteProduct}
+                isDeleting={deletingId || undefined}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="import">
+            <ExcelUploader
+              onProductsParsed={handleImportProducts}
+              isUploading={isImporting}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Add/Edit Product Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingProduct ? "Edit Product" : "Add New Product"}
+            </DialogTitle>
+          </DialogHeader>
+          <ProductForm
+            product={editingProduct || undefined}
+            onSubmit={handleSubmitProduct}
+            onCancel={() => setIsDialogOpen(false)}
+            isLoading={isSubmitting}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
