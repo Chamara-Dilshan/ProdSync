@@ -11,8 +11,8 @@ interface HeaderProps {
 export function Header({ title, description }: HeaderProps) {
   const { user } = useAuth()
 
-  const getInitials = (name: string | null) => {
-    if (!name) return "U"
+  const getInitials = (name: string | null | undefined): string => {
+    if (!name) {return "U"}
     return name
       .split(" ")
       .map((n) => n[0])
