@@ -7,8 +7,15 @@ import {
   MessageToContent,
   MessageToPopupFromContent,
 } from "../shared/messaging/messages"
+import { injectButton, extractBuyerMessage } from "./ui-injector"
+import {
+  findElementWithFallback,
+  insertTextIntoTextarea,
+  scrollToElement,
+} from "./dom-helpers"
+import { TEXTAREA_SELECTORS } from "./etsy-selectors"
 
-console.log("ProdSync content script loaded on:", window.location.href)
+console.log("[ProdSync] Content script loaded on:", window.location.href)
 
 // Check if we're on an Etsy message page
 const ETSY_MESSAGE_PATTERNS = [
@@ -23,10 +30,11 @@ function isEtsyMessagePage(): boolean {
 }
 
 if (isEtsyMessagePage()) {
-  console.log("ProdSync: Etsy message page detected")
-  // DOM manipulation and button injection coming in Phase 2
+  console.log("[ProdSync] Etsy message page detected")
+  // Initialize content script and inject button
+  initializeContentScript()
 } else {
-  console.log("ProdSync: Not an Etsy message page, content script inactive")
+  console.log("[ProdSync] Not an Etsy message page, content script inactive")
 }
 
 // Listen for messages from popup
@@ -53,16 +61,43 @@ chrome.runtime.onMessage.addListener(
 function handleInsertReply(
   reply: string,
   sendResponse: (response: MessageToPopupFromContent) => void
-) {
+): void {
   try {
-    // Reply insertion implementation coming in Phase 2
-    console.log("Insert reply:", reply)
+    console.log("[ProdSync] Inserting reply:", reply.substring(0, 50) + "...")
+
+    // Find message textarea using fallback selectors
+    const textarea = findElementWithFallback(
+      TEXTAREA_SELECTORS
+    ) as HTMLTextAreaElement
+
+    if (!textarea) {
+      console.error("[ProdSync] Could not find message textarea")
+      sendResponse({
+        type: "REPLY_INSERTED",
+        payload: { success: false },
+      })
+      return
+    }
+
+    // Insert text and trigger events
+    const success = insertTextIntoTextarea(textarea, reply)
+
+    if (success) {
+      // Scroll textarea into view
+      scrollToElement(textarea)
+
+      // Focus textarea
+      textarea.focus()
+
+      console.log("[ProdSync] Reply inserted successfully")
+    }
+
     sendResponse({
       type: "REPLY_INSERTED",
-      payload: { success: false },
+      payload: { success },
     })
   } catch (error) {
-    console.error("Error inserting reply:", error)
+    console.error("[ProdSync] Error inserting reply:", error)
     sendResponse({
       type: "REPLY_INSERTED",
       payload: { success: false },
@@ -72,19 +107,86 @@ function handleInsertReply(
 
 function handleGetCurrentMessage(
   sendResponse: (response: MessageToPopupFromContent) => void
-) {
+): void {
   try {
-    // Message extraction implementation coming in Phase 2
-    console.log("Get current message")
+    console.log("[ProdSync] Extracting current message")
+
+    // Extract buyer message from the page
+    const message = extractBuyerMessage()
+
+    console.log(
+      "[ProdSync] Get current message:",
+      message ? "found" : "not found"
+    )
+
     sendResponse({
       type: "CURRENT_MESSAGE",
-      payload: { message: null },
+      payload: { message },
     })
   } catch (error) {
-    console.error("Error getting current message:", error)
+    console.error("[ProdSync] Error getting current message:", error)
     sendResponse({
       type: "CURRENT_MESSAGE",
       payload: { message: null },
     })
   }
+}
+
+/**
+ * Initialize content script and inject button
+ */
+async function initializeContentScript(): Promise<void> {
+  try {
+    console.log("[ProdSync] Initializing content script")
+
+    // Wait for page to be fully loaded
+    if (document.readyState === "loading") {
+      await new Promise((resolve) => {
+        document.addEventListener("DOMContentLoaded", resolve)
+      })
+    }
+
+    // Wait a bit for React to render (Etsy is a React app)
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    console.log("[ProdSync] Attempting to inject button")
+
+    // Inject the button
+    const injected = await injectButton()
+
+    if (!injected) {
+      console.warn("[ProdSync] Button injection failed, will retry")
+      // Retry after 3 seconds
+      setTimeout(() => {
+        injectButton()
+      }, 3000)
+    }
+
+    // Set up MutationObserver to re-inject button if page changes
+    observePageChanges()
+  } catch (error) {
+    console.error("[ProdSync] Initialization error:", error)
+  }
+}
+
+/**
+ * Observe page changes and re-inject button if needed
+ * Useful for single-page applications like Etsy
+ */
+function observePageChanges(): void {
+  const observer = new MutationObserver(() => {
+    // Check if our button is still in the DOM
+    if (!document.getElementById("prodsync-generate-btn")) {
+      console.log("[ProdSync] Button removed, re-injecting")
+      injectButton()
+    }
+  })
+
+  // Observe the entire document body
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  })
+
+  console.log("[ProdSync] Page change observer started")
 }
