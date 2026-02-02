@@ -31,6 +31,10 @@ yarn-error.log*
 .env*.local
 .env
 
+# claude files (local only)
+.claude/
+CLAUDE.md
+
 # vercel
 .vercel
 
