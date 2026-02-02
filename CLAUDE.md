@@ -119,6 +119,109 @@ The application includes comprehensive error boundaries at multiple levels:
    - Custom 404 page for non-existent routes
    - Provides navigation back to dashboard
 
+## Browser Extension Development
+
+### Quick Start (Extension)
+
+```bash
+# Navigate to extension directory
+cd extension
+
+# Install dependencies (first time only)
+npm install
+
+# Create environment file
+cp .env.example .env
+# Edit .env and add Firebase credentials from main app
+
+# Start development server
+npm run dev
+
+# In Chrome:
+# 1. Go to chrome://extensions/
+# 2. Enable "Developer mode"
+# 3. Click "Load unpacked"
+# 4. Select extension/dist/ directory
+```
+
+### Extension Commands
+
+```bash
+cd extension
+
+npm run dev              # Start development with HMR
+npm run build            # Production build
+npm run type-check       # TypeScript validation
+npm run lint             # ESLint check
+```
+
+### Extension Structure
+
+```
+extension/
+├── public/
+│   ├── manifest.json          # Chrome Manifest V3
+│   └── icons/                 # Extension icons (16, 48, 128px)
+├── src/
+│   ├── background/            # Service worker (API calls, token refresh)
+│   ├── content/               # Content scripts (Etsy integration)
+│   ├── popup/                 # React popup UI
+│   ├── shared/
+│   │   ├── firebase/          # Firebase auth
+│   │   ├── storage/           # Chrome Storage wrappers
+│   │   ├── messaging/         # Cross-context messaging
+│   │   └── utils/             # Utilities
+│   └── components/ui/         # UI components
+└── dist/                      # Build output
+```
+
+### Testing the Extension
+
+**Authentication Testing:**
+
+1. Click extension icon to open popup
+2. Sign in with email/password or Google
+3. Close popup and reopen - token should persist
+4. Test sign out clears all data
+
+**Etsy Page Detection:**
+
+1. Visit https://www.etsy.com/messages
+2. Open extension service worker console (chrome://extensions → Inspect views)
+3. Check for "Etsy message page detected" log
+
+**Storage Inspection:**
+
+1. Go to chrome://extensions
+2. Find ProdSync extension
+3. Click "Inspect views: service worker"
+4. Go to Application tab → Storage → Local Storage → chrome-extension://...
+5. Verify auth token and expiry are stored
+
+**Debugging:**
+
+- Popup errors: Right-click extension icon → Inspect popup
+- Service worker errors: chrome://extensions → Inspect views: service worker
+- Content script errors: Inspect the Etsy page (F12)
+
+### Extension Development Workflow
+
+**Making Changes:**
+
+1. Edit files in `extension/src/`
+2. Popup changes auto-reload with HMR
+3. Background/content script changes require extension reload:
+   - Go to chrome://extensions
+   - Click refresh icon on ProdSync extension
+
+**Adding New Features to Extension:**
+
+1. Update types in `shared/types/` or import from main app's `/types`
+2. Add storage utilities in `shared/storage/` if needed
+3. Update messaging types in `shared/messaging/messages.ts`
+4. Implement feature in popup, background, or content script
+5. Update manifest.json if new permissions needed
+
 ## Development Guidelines
 
 ### Adding New Features
@@ -604,20 +707,73 @@ Add your production domain(s):
 
 ## Future Improvements & Roadmap
 
-### Phase 1: Browser Extension
+### Phase 1: Browser Extension ⏳ (In Progress - 70% Complete)
 
-- [ ] Chrome/Firefox extension for Etsy inbox integration
-- [ ] Detect buyer messages automatically in Etsy inbox
-- [ ] One-click reply insertion directly into Etsy message box
-- [ ] Extension communicates with backend API (no API keys in extension)
-- [ ] Popup UI for quick reply generation
+**Phase 1.1: Foundation ✅ Completed (February 2026)**
 
-**Implementation Notes:**
+- [x] Chrome extension project structure with Vite + React + TypeScript
+- [x] Chrome Manifest V3 configuration with permissions
+- [x] Chrome Storage wrapper utilities (auth, cache, settings)
+- [x] Firebase authentication integration (email/password + Google)
+- [x] Popup UI with login flow and auth state management
+- [x] Token storage and expiry checking (auto-refresh on 5-min buffer)
+- [x] Background service worker with message routing
+- [x] Content script entry point with Etsy page detection
+- [x] Cross-context messaging system (popup ↔ background ↔ content)
+- [x] UI components copied from main app (Button, Card, Input, Label)
 
-- Create `/extension` directory with manifest.json
-- Use content scripts to detect Etsy message elements
-- Background script handles API communication
-- Store user auth token securely in extension storage
+**Phase 1.2: Content Script Integration ⏳ Next**
+
+- [ ] DOM manipulation to inject "Generate Reply" button on Etsy pages
+- [ ] Buyer message extraction from Etsy conversation UI
+- [ ] Reply insertion into Etsy message textarea with React event triggering
+- [ ] Button styling to match Etsy's design language
+
+**Phase 1.3: API Integration ⏳ Pending**
+
+- [ ] Backend API client for /api/ai/generate-reply
+- [ ] Token refresh mechanism in background worker
+- [ ] Firestore data fetching (products, policies, user settings)
+- [ ] Data caching with 1-hour TTL
+- [ ] Error handling for API failures (401, 403, 429, 500+)
+
+**Phase 1.4: Reply Generation UI ⏳ Pending**
+
+- [ ] Full reply generation form in popup
+- [ ] Product selector with cached product list
+- [ ] Tone selector (professional, friendly, formal, casual)
+- [ ] Reply preview with copy/insert buttons
+- [ ] Loading states and error messages
+
+**Phase 1.5: Testing & Deployment ⏳ Pending**
+
+- [ ] Manual testing checklist completion
+- [ ] Chrome Web Store submission assets (screenshots, icons, promo images)
+- [ ] Privacy policy document
+- [ ] CORS configuration in backend for chrome-extension:// origins
+- [ ] Chrome Web Store submission and review
+
+**Implementation Files Created (32 files):**
+
+- Extension directory: `/extension/`
+- Configuration: `manifest.json`, `vite.config.ts`, `tsconfig.json`, `tailwind.config.ts`
+- Storage utilities: `storage/auth-storage.ts`, `storage/cache-storage.ts`, `storage/storage-keys.ts`
+- Firebase: `firebase/config.ts`, `firebase/auth.ts`
+- Messaging: `messaging/messages.ts`
+- UI: `popup/App.tsx`, `popup/pages/Login.tsx`, `popup/pages/Generator.tsx`
+- Scripts: `background/index.ts`, `content/index.ts`
+- Components: `ui/button.tsx`, `ui/card.tsx`, `ui/input.tsx`, `ui/label.tsx`
+
+**Documentation:**
+
+- Extension README: [extension/README.md](extension/README.md)
+- Implementation plan: `C:\Users\chama\.claude\plans\rustling-imagining-crayon.md`
+
+**Next Steps:**
+
+1. Configure `.env` file with Firebase credentials
+2. Test authentication flow in Chrome
+3. Implement Phase 1.2: Content script DOM manipulation
 
 ### Phase 2: Enhanced AI Features
 

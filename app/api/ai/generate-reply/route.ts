@@ -25,6 +25,15 @@ export async function POST(request: NextRequest) {
     }
     provider = providerFromBody
 
+    // Auto-migrate deprecated models
+    let modelToUse = model
+    if (model === "gemini-2.0-flash") {
+      modelToUse = "gemini-2.5-flash"
+      console.log(
+        `⚠️ Auto-migrating from deprecated model ${model} to ${modelToUse}`
+      )
+    }
+
     // Validate required fields
     if (!message || !provider || !apiKey) {
       return NextResponse.json(
@@ -42,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     // Get AI provider and generate reply
     const aiProvider = getAIProvider(provider, apiKey)
-    const reply = await aiProvider.generateReply(message, context, model)
+    const reply = await aiProvider.generateReply(message, context, modelToUse)
 
     return NextResponse.json({
       reply,

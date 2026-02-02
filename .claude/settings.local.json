@@ -12,7 +12,14 @@
       "Bash(npm run format:check:*)",
       "Bash(npx husky init)",
       "Bash(npx storybook@latest init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(if [ -f .env.local ])",
+      "Bash(then echo \"Found .env.local\")",
+      "Bash(else echo \"No .env.local file found. Checking .env.local.example...\")",
+      "Bash(fi)",
+      "Bash(powershell:*)",
+      "Bash(git rm:*)"
     ]
   }
 }

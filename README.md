@@ -327,14 +327,73 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Browser Extension
+
+🚀 **Chrome extension in active development!** Generate AI replies directly from your Etsy inbox.
+
+### Status: Phase 1 (Foundation) ✅ Completed
+
+**Implemented:**
+
+- ✅ Chrome extension project with Vite + React + TypeScript
+- ✅ Firebase authentication (email/password + Google)
+- ✅ Token storage with auto-refresh
+- ✅ Popup UI with login flow
+- ✅ Background service worker
+- ✅ Content script for Etsy page detection
+- ✅ Cross-context messaging system
+
+**Coming Next (Phase 2):**
+
+- ⏳ "Generate Reply" button injection on Etsy pages
+- ⏳ Buyer message extraction
+- ⏳ One-click reply insertion into Etsy
+
+**Getting Started:**
+
+```bash
+cd extension
+npm install
+cp .env.example .env
+# Edit .env with Firebase credentials
+npm run dev
+```
+
+See [extension/README.md](extension/README.md) for detailed setup instructions.
+
 ## Roadmap
 
-- [ ] Browser extension for Etsy integration
-- [ ] Multi-shop support (SaaS model)
+### Phase 1: Browser Extension ⏳ (70% Complete)
+
+- [x] Foundation: Auth, storage, popup UI
+- [ ] Content script: DOM manipulation, message extraction
+- [ ] API integration: Backend calls, data caching
+- [ ] Reply generation UI
+- [ ] Chrome Web Store submission
+
+### Phase 2: Enhanced AI Features
+
+- [ ] Smart product detection from buyer messages
+- [ ] Multiple reply variations
+- [ ] Reply quality scoring
+- [ ] Custom prompt templates
+- [ ] Message sentiment analysis
+
+### Phase 3: Multi-Shop & SaaS
+
+- [ ] Multi-shop support
+- [ ] Team member access with roles
+- [ ] Subscription tiers
+- [ ] Usage analytics
+- [ ] Billing integration
+
+### Phase 4: Advanced Features
+
+- [ ] Reply history and learning
+- [ ] Automated follow-ups
+- [ ] Etsy API integration
+- [ ] FAQ detection
 - [ ] Analytics dashboard
-- [ ] Reply templates
-- [ ] Automatic reply suggestions
-- [ ] Message history tracking
 
 ## Support
 

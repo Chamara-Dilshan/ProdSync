@@ -44,10 +44,16 @@ export const AI_MODELS: AIModel[] = [
     description: "Fast and efficient",
   },
   {
-    id: "gemini-2.0-flash",
-    name: "Gemini 2.0 Flash",
+    id: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
     provider: "gemini",
-    description: "Latest Gemini model",
+    description: "Latest and fastest Gemini model",
+  },
+  {
+    id: "gemini-2.5-flash-lite",
+    name: "Gemini 2.5 Flash Lite",
+    provider: "gemini",
+    description: "Lightweight and cost-effective",
   },
 
   // Anthropic Models
