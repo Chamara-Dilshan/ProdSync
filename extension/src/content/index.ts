@@ -17,11 +17,27 @@ import { TEXTAREA_SELECTORS } from "./etsy-selectors"
 
 console.log("[ProdSync] Content script loaded on:", window.location.href)
 
-// Check if we're on an Etsy message page
+// URL pattern matching
 const ETSY_MESSAGE_PATTERNS = [
-  /^https:\/\/www\.etsy\.com\/messages\/.*/,
-  /^https:\/\/www\.etsy\.com\/your\/orders\/sold.*/,
+  /^https:\/\/www\.etsy\.com\/messages/,
+  /^https:\/\/www\.etsy\.com\/your\/orders\/sold/,
 ]
+
+/**
+ * Check if we're on an individual conversation page (not inbox/list)
+ * Conversation URLs have format: /messages/{conversation-id}
+ * Inbox URL is just: /messages
+ */
+function isConversationPage(): boolean {
+  const url = window.location.pathname
+
+  // Check for conversation page patterns:
+  // - /messages/{anything} where {anything} is not empty
+  // - Must have content after /messages/
+  const conversationPattern = /^\/messages\/.+/
+
+  return conversationPattern.test(url)
+}
 
 function isEtsyMessagePage(): boolean {
   return ETSY_MESSAGE_PATTERNS.some((pattern) =>
@@ -29,12 +45,87 @@ function isEtsyMessagePage(): boolean {
   )
 }
 
-if (isEtsyMessagePage()) {
-  console.log("[ProdSync] Etsy message page detected")
-  // Initialize content script and inject button
+/**
+ * Intercept History API to detect SPA navigation
+ * Etsy uses pushState/replaceState to navigate without full page reload
+ */
+function setupUrlChangeDetection(): void {
+  let lastUrl = window.location.href
+
+  // Create a custom event for URL changes
+  const urlChangeEvent = new Event("urlchange")
+
+  // Intercept pushState
+  const originalPushState = history.pushState
+  history.pushState = function (...args) {
+    originalPushState.apply(this, args)
+    window.dispatchEvent(urlChangeEvent)
+  }
+
+  // Intercept replaceState
+  const originalReplaceState = history.replaceState
+  history.replaceState = function (...args) {
+    originalReplaceState.apply(this, args)
+    window.dispatchEvent(urlChangeEvent)
+  }
+
+  // Listen for popstate (back/forward navigation)
+  window.addEventListener("popstate", () => {
+    window.dispatchEvent(urlChangeEvent)
+  })
+
+  // Listen for our custom urlchange event
+  window.addEventListener("urlchange", () => {
+    const currentUrl = window.location.href
+    if (currentUrl !== lastUrl) {
+      console.log(`[ProdSync] URL changed: ${lastUrl} → ${currentUrl}`)
+      lastUrl = currentUrl
+      handleUrlChange()
+    }
+  })
+
+  console.log("[ProdSync] URL change detection enabled")
+}
+
+/**
+ * Handle URL changes during SPA navigation
+ * Decides whether to initialize or cleanup based on new URL
+ */
+function handleUrlChange(): void {
+  const isMessagePage = isEtsyMessagePage()
+  const isConversation = isConversationPage()
+  const buttonExists = document.getElementById("prodsync-generate-btn")
+
+  if (isMessagePage && isConversation && !buttonExists) {
+    // Navigated TO a conversation page - initialize
+    console.log("[ProdSync] Navigated to conversation page, initializing...")
+    initializeContentScript(true) // Pass true to indicate SPA navigation
+  } else if ((!isMessagePage || !isConversation) && buttonExists) {
+    // Navigated AWAY from conversation page - cleanup
+    console.log("[ProdSync] Navigated away from conversation, cleaning up...")
+    cleanupContentScript()
+  } else if (isMessagePage && isConversation && buttonExists) {
+    // Already on conversation page with button - check if button is still valid
+    console.log("[ProdSync] Already on conversation page, verifying button...")
+    verifyButtonInjection()
+  }
+}
+
+// Set up URL change detection for SPA navigation
+setupUrlChangeDetection()
+
+// Initial check and initialization
+if (isEtsyMessagePage() && isConversationPage()) {
+  console.log("[ProdSync] Etsy conversation page detected")
   initializeContentScript()
+} else if (isEtsyMessagePage()) {
+  console.log(
+    "[ProdSync] On Etsy messages page (inbox), waiting for conversation..."
+  )
 } else {
-  console.log("[ProdSync] Not an Etsy message page, content script inactive")
+  console.log(
+    "[ProdSync] Not an Etsy message page, monitoring for navigation..."
+  )
 }
 
 // Listen for messages from popup
@@ -60,7 +151,7 @@ chrome.runtime.onMessage.addListener(
 
 function handleInsertReply(
   reply: string,
-  sendResponse: (response: MessageToPopupFromContent) => void
+  sendResponse: (_response: MessageToPopupFromContent) => void
 ): void {
   try {
     console.log("[ProdSync] Inserting reply:", reply.substring(0, 50) + "...")
@@ -106,7 +197,7 @@ function handleInsertReply(
 }
 
 function handleGetCurrentMessage(
-  sendResponse: (response: MessageToPopupFromContent) => void
+  sendResponse: (_response: MessageToPopupFromContent) => void
 ): void {
   try {
     console.log("[ProdSync] Extracting current message")
@@ -133,11 +224,55 @@ function handleGetCurrentMessage(
 }
 
 /**
- * Initialize content script and inject button
+ * Cleanup content script when navigating away from message pages
  */
-async function initializeContentScript(): Promise<void> {
+function cleanupContentScript(): void {
+  console.log("[ProdSync] Cleaning up content script")
+
+  // Remove button if it exists
+  const button = document.getElementById("prodsync-generate-btn")
+  if (button) {
+    button.remove()
+    console.log("[ProdSync] Button removed")
+  }
+
+  // Note: MutationObserver cleanup is handled automatically when page changes
+}
+
+/**
+ * Verify button is still properly injected
+ * Re-inject if button exists but is not in the correct location
+ */
+async function verifyButtonInjection(): Promise<void> {
+  const button = document.getElementById("prodsync-generate-btn")
+  if (!button) {
+    console.log("[ProdSync] Button not found, re-injecting...")
+    await injectButton()
+    return
+  }
+
+  // Check if button is still in the DOM and visible
+  if (!document.body.contains(button)) {
+    console.log("[ProdSync] Button not in DOM, re-injecting...")
+    button.remove()
+    await injectButton()
+    return
+  }
+
+  console.log("[ProdSync] Button verified OK")
+}
+
+/**
+ * Initialize content script and inject button
+ * @param isSpaNavigation - True if called during SPA navigation (not initial page load)
+ */
+async function initializeContentScript(
+  isSpaNavigation: boolean = false
+): Promise<void> {
   try {
-    console.log("[ProdSync] Initializing content script")
+    console.log(
+      `[ProdSync] Initializing content script (SPA: ${isSpaNavigation})`
+    )
 
     // Wait for page to be fully loaded
     if (document.readyState === "loading") {
@@ -146,8 +281,11 @@ async function initializeContentScript(): Promise<void> {
       })
     }
 
-    // Wait a bit for React to render (Etsy is a React app)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    // Wait longer for React to render during SPA navigation
+    // During SPA navigation, React needs to tear down old page and render new one
+    const waitTime = isSpaNavigation ? 2000 : 1000
+    console.log(`[ProdSync] Waiting ${waitTime}ms for React to render...`)
+    await new Promise((resolve) => setTimeout(resolve, waitTime))
 
     console.log("[ProdSync] Attempting to inject button")
 
@@ -156,10 +294,19 @@ async function initializeContentScript(): Promise<void> {
 
     if (!injected) {
       console.warn("[ProdSync] Button injection failed, will retry")
-      // Retry after 3 seconds
+      // Retry with longer delay
       setTimeout(() => {
-        injectButton()
-      }, 3000)
+        console.log("[ProdSync] Retry attempt 1...")
+        injectButton().then((success) => {
+          if (!success) {
+            // Second retry after even longer delay
+            setTimeout(() => {
+              console.log("[ProdSync] Retry attempt 2...")
+              injectButton()
+            }, 3000)
+          }
+        })
+      }, 2000)
     }
 
     // Set up MutationObserver to re-inject button if page changes
@@ -174,12 +321,26 @@ async function initializeContentScript(): Promise<void> {
  * Useful for single-page applications like Etsy
  */
 function observePageChanges(): void {
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
   const observer = new MutationObserver(() => {
-    // Check if our button is still in the DOM
-    if (!document.getElementById("prodsync-generate-btn")) {
-      console.log("[ProdSync] Button removed, re-injecting")
-      injectButton()
+    // Debounce to avoid excessive re-injection attempts
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
     }
+
+    debounceTimer = setTimeout(() => {
+      // Only re-inject if we're still on a conversation page
+      if (!isEtsyMessagePage() || !isConversationPage()) {
+        return
+      }
+
+      // Check if our button is still in the DOM
+      if (!document.getElementById("prodsync-generate-btn")) {
+        console.log("[ProdSync] Button removed by DOM change, re-injecting")
+        injectButton()
+      }
+    }, 500) // Wait 500ms after last DOM change
   })
 
   // Observe the entire document body

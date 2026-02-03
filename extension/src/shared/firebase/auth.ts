@@ -73,7 +73,7 @@ export function getCurrentUser(): User | null {
  * Listen to auth state changes
  */
 export function onAuthChange(
-  callback: (user: User | null) => void
+  callback: (_user: User | null) => void
 ): () => void {
   return onAuthStateChanged(auth, callback)
 }

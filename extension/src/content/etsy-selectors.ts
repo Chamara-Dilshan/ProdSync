@@ -12,29 +12,29 @@
  */
 
 export const ETSY_SELECTORS = {
-  // Message conversation area
-  conversationContainer: "[data-conversation-thread]",
-  messageList: "[data-message-list]",
+  // Message conversation area (from actual Etsy HTML)
+  conversationContainer: ".msg-list-container",
+  messageList: ".scrolling-message-list",
 
-  // Individual messages (buyer messages have specific attributes)
-  messageItem: "[data-message-id]",
-  buyerMessage: '[data-message-from="buyer"]', // Hypothetical - needs testing
-  sellerMessage: '[data-message-from="seller"]', // Hypothetical - needs testing
+  // Individual messages
+  messageItem: ".wt-rounded.wt-text-body-01",
+  buyerMessage: ".wt-rounded.wt-text-body-01", // All buyer messages have these classes
+  sellerMessage: ".wt-rounded.wt-text-body-01",
 
   // Message textarea (where seller types reply)
-  messageTextarea: 'textarea[name="message"]',
-  messageTextareaAlt: '[data-testid="message-textarea"]',
-  messageTextareaFallback: "textarea",
+  messageTextarea: 'textarea[placeholder*="Type your reply"]',
+  messageTextareaAlt: "textarea",
+  messageTextareaFallback: "textarea.wt-input",
 
   // Submit button area (where we'll inject our button)
-  messageActions: "[data-message-actions]",
+  messageActions: "form",
   submitButton: 'button[type="submit"]',
-  sendButton: "button[data-send]",
+  sendButton: "button:has(svg)", // Etsy uses icon buttons
 
-  // Message text content
-  messageText: "[data-message-text]",
-  messageContent: ".message-content",
-  messageBody: ".message-body",
+  // Message text content (actual Etsy classes from DevTools)
+  messageText: ".wt-text-body-01",
+  messageContent: ".wt-rounded",
+  messageBody: ".wt-display-inline-block",
 } as const
 
 /**

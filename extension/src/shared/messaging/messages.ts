@@ -38,6 +38,9 @@ export type MessageToBackground =
   | {
       type: "GET_AUTH_TOKEN"
     }
+  | {
+      type: "OPEN_POPUP"
+    }
 
 // ============ Background → Popup ============
 
@@ -76,6 +79,10 @@ export type MessageToPopup =
   | {
       type: "AUTH_TOKEN"
       payload: { token: string | null }
+    }
+  | {
+      type: "POPUP_OPENED"
+      payload: { success: boolean }
     }
 
 // ============ Popup → Content Script ============

@@ -65,7 +65,25 @@ export function createGenerateButton(): HTMLButtonElement {
  */
 export function extractBuyerMessage(): string | null {
   try {
-    // Strategy 1: Look for most recent buyer message using specific selector
+    // SIMPLIFIED: Just get all message texts (wt-text-body-01)
+    const messageElements = document.querySelectorAll(".wt-text-body-01")
+
+    console.log(`[ProdSync] Found ${messageElements.length} message elements`)
+
+    // Get the first visible message (usually the buyer's)
+    for (const message of messageElements) {
+      const text = extractTextFromElement(message)
+      if (text && text.length > 10) {
+        // Must be substantial
+        console.log(
+          "[ProdSync] Extracted message:",
+          text.substring(0, 50) + "..."
+        )
+        return text
+      }
+    }
+
+    // OLD CODE - keeping as fallback
     const buyerMessages = document.querySelectorAll(ETSY_SELECTORS.buyerMessage)
 
     if (buyerMessages.length > 0) {
@@ -163,15 +181,82 @@ async function handleGenerateButtonClick(): Promise<void> {
 
     console.log("[ProdSync] Message stored, opening popup")
 
-    // Open popup by sending message to background script
-    // The background script will handle opening the popup window
-    chrome.runtime.sendMessage({
+    // Try to open popup by sending message to background script
+    const response = await chrome.runtime.sendMessage({
       type: "OPEN_POPUP",
     })
+
+    // If popup couldn't be opened automatically, show instructions
+    if (response && !response.payload.success) {
+      console.log(
+        "[ProdSync] Auto-open failed, prompting user to click extension icon"
+      )
+      // Create a notification-style message
+      showNotification(
+        "✨ Message captured! Click the ProdSync extension icon to generate your reply."
+      )
+    } else {
+      console.log("[ProdSync] Popup opened successfully")
+    }
   } catch (error) {
     console.error("[ProdSync] Error handling button click:", error)
-    alert("Error opening ProdSync. Please try again.")
+    // Fallback: Show instruction to user
+    showNotification(
+      "✨ Message captured! Click the ProdSync extension icon to generate your reply."
+    )
   }
+}
+
+/**
+ * Show a notification message on the page
+ */
+function showNotification(message: string): void {
+  // Create notification element
+  const notification = document.createElement("div")
+  notification.textContent = message
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 999999;
+    animation: slideIn 0.3s ease-out;
+  `
+
+  // Add animation keyframes
+  const style = document.createElement("style")
+  style.textContent = `
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+  `
+  document.head.appendChild(style)
+
+  // Add to page
+  document.body.appendChild(notification)
+
+  // Remove after 5 seconds
+  setTimeout(() => {
+    notification.style.animation = "slideIn 0.3s ease-out reverse"
+    setTimeout(() => {
+      notification.remove()
+      style.remove()
+    }, 300)
+  }, 5000)
 }
 
 /**
@@ -189,18 +274,47 @@ export async function injectButton(): Promise<boolean> {
 
     // Wait for message textarea to appear (indicates message form is ready)
     console.log("[ProdSync] Waiting for textarea...")
-    await waitForElement(TEXTAREA_SELECTORS[0], 5000).catch(() => {
-      // If primary selector fails, try fallbacks
-      return findElementWithFallback(TEXTAREA_SELECTORS)
-    })
+    console.log("[ProdSync] Trying selectors:", TEXTAREA_SELECTORS)
+
+    let textarea
+    try {
+      textarea = await waitForElement(TEXTAREA_SELECTORS[0], 5000)
+      console.log("[ProdSync] Found textarea with primary selector")
+    } catch {
+      console.log("[ProdSync] Primary selector failed, trying fallbacks...")
+      textarea = findElementWithFallback(TEXTAREA_SELECTORS)
+    }
+
+    if (!textarea) {
+      console.error("[ProdSync] ❌ Could not find textarea with any selector")
+      console.log(
+        "[ProdSync] Available textareas on page:",
+        document.querySelectorAll("textarea").length
+      )
+      return false
+    }
+
+    console.log("[ProdSync] ✓ Textarea found, looking for submit button...")
+    console.log("[ProdSync] Trying selectors:", SUBMIT_BUTTON_SELECTORS)
 
     // Find submit button or message actions area
     const submitButton = findElementWithFallback(SUBMIT_BUTTON_SELECTORS)
 
     if (!submitButton) {
-      console.error("[ProdSync] Could not find submit button area")
+      console.error("[ProdSync] ❌ Could not find submit button area")
+      console.log(
+        "[ProdSync] Available buttons on page:",
+        document.querySelectorAll("button").length
+      )
+      // Try to find any button with text "Send"
+      const sendButtons = Array.from(
+        document.querySelectorAll("button")
+      ).filter((btn) => btn.textContent?.trim().toLowerCase() === "send")
+      console.log("[ProdSync] Buttons with 'Send' text:", sendButtons.length)
       return false
     }
+
+    console.log("[ProdSync] ✓ Submit button found")
 
     // Create and inject our button
     const button = createGenerateButton()
@@ -211,15 +325,19 @@ export async function injectButton(): Promise<boolean> {
     // Insert before submit button
     if (submitButton.parentElement) {
       submitButton.parentElement.insertBefore(button, submitButton)
+      console.log("[ProdSync] ✓ Button inserted before submit button")
     } else {
       // Fallback: insert after submit button
       submitButton.after(button)
+      console.log("[ProdSync] ✓ Button inserted after submit button")
     }
 
-    console.log("[ProdSync] Generate button injected successfully")
+    console.log("[ProdSync] ✅ Generate button injected successfully")
     return true
   } catch (error) {
-    console.error("[ProdSync] Failed to inject button", error)
+    console.error("[ProdSync] ❌ Failed to inject button:", error)
+    console.log("[ProdSync] Page URL:", window.location.href)
+    console.log("[ProdSync] Document ready state:", document.readyState)
     return false
   }
 }
