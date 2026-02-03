@@ -159,12 +159,11 @@ VITE_FIREBASE_APP_ID=your_app_id
 ### 3. Build the Extension
 
 ```bash
-# Development build with hot reload
-npm run dev
-
-# OR production build
+# Build the extension (use build, NOT dev)
 npm run build
 ```
+
+**Important:** Use `npm run build` instead of `npm run dev`. The dev mode has CORS issues with Chrome extensions and will cause "Service worker registration failed" errors.
 
 The extension will be built to the `dist/` folder.
 
@@ -239,11 +238,12 @@ npm run build-storybook  # Build Storybook for production
 ```bash
 cd extension
 
-npm run dev              # Development build with hot reload
-npm run build            # Production build
+npm run build            # Build extension (recommended)
 npm run type-check       # TypeScript type checking
 npm run lint             # ESLint checking
 ```
+
+**Note:** `npm run dev` is NOT recommended due to CORS issues. Always use `npm run build`.
 
 ---
 
@@ -258,13 +258,14 @@ npm run lint             # ESLint checking
 
 ### Working on Extension
 
-1. Start dev build: `cd extension && npm run dev`
-2. Make changes to files in `extension/src/`
-3. For popup changes: Auto-reloads
-4. For background/content script changes:
+1. Make changes to files in `extension/src/`
+2. Rebuild: `cd extension && npm run build`
+3. Reload the extension:
    - Go to `chrome://extensions`
    - Click the refresh icon on ProdSync extension
-   - Reload the Etsy page you're testing on
+4. If testing on Etsy, reload the page
+
+**Note:** Unlike the main app, the extension does not support hot reload. You must rebuild and reload manually after each change.
 
 ---
 
@@ -292,6 +293,14 @@ npm run dev -- -p 3001
 ```
 
 ### Extension Issues
+
+**"Service worker registration failed" or CORS errors**
+
+- **DO NOT use `npm run dev`** - it causes CORS issues
+- Use production build: `cd extension && npm run build`
+- Remove old extension from `chrome://extensions`
+- Load the `extension/dist` folder as unpacked extension
+- This is the recommended workflow for all extension development
 
 **Extension doesn't load in Chrome**
 

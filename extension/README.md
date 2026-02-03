@@ -33,23 +33,37 @@ VITE_BACKEND_URL=https://your-prodsync-app.vercel.app
 
 ## Development
 
-### Start Development Server
+### Important: Use Production Build for Development
+
+**Due to Chrome extension CORS restrictions, use the production build instead of dev mode:**
 
 ```bash
-npm run dev
+npm run build
 ```
+
+**Why not dev mode?**
+
+- Chrome extensions block HMR (Hot Module Replacement) due to CORS policies
+- The dev server (`npm run dev`) will cause "Service worker registration failed" errors
+- Production builds work reliably without requiring a dev server
 
 ### Load Extension in Chrome
 
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable "Developer mode" (toggle in top right)
-3. Click "Load unpacked"
-4. Select the `extension/dist` directory
-5. The extension should now appear in your browser
+1. Build the extension: `npm run build`
+2. Open Chrome and navigate to `chrome://extensions/`
+3. Enable "Developer mode" (toggle in top right)
+4. Click "Load unpacked"
+5. Select the `extension/dist` directory
+6. The extension should now appear in your browser
 
-### Hot Reload
+### Making Changes
 
-Vite provides hot module replacement (HMR). Changes to popup UI will reload automatically. Changes to background or content scripts require extension reload.
+When you make changes to the extension code:
+
+1. Run `npm run build` to rebuild
+2. Go to `chrome://extensions/`
+3. Click the reload icon on the ProdSync extension
+4. Test your changes
 
 ## Build for Production
 
@@ -207,23 +221,40 @@ extension/
 
 ## Troubleshooting
 
+### "Service worker registration failed" or CORS errors
+
+**Symptoms:**
+
+- "Vite Dev Mode" popup appears
+- CORS policy errors in console
+- "Cannot connect to Vite Dev Server"
+
+**Solution:**
+
+1. **DO NOT use `npm run dev`** - it has CORS issues with Chrome extensions
+2. Use production build instead: `npm run build`
+3. Remove old extension from `chrome://extensions/`
+4. Load the `extension/dist` folder as unpacked extension
+5. The extension will work without errors
+
+**Why this happens:**
+
+- Chrome Manifest V3 has strict CORS policies
+- Vite's HMR server requires CORS headers that Chrome blocks
+- Production builds don't need a dev server and work reliably
+
 ### Extension not loading
 
 - Check console for errors in `chrome://extensions/`
 - Verify `.env` file exists with correct Firebase credentials
 - Try rebuilding: `npm run build`
+- Make sure you're loading the `dist` folder, not the `extension` folder
 
 ### Authentication fails
 
 - Verify Firebase credentials match main app
 - Check Firebase Console for authentication errors
 - Ensure Firebase Auth domain includes Chrome extension in authorized domains
-
-### Hot reload not working
-
-- Reload extension manually in `chrome://extensions/`
-- Check Vite dev server is running
-- Clear Chrome extension cache
 
 ### Button doesn't appear on Etsy page (Updated Feb 2026)
 
