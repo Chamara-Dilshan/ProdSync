@@ -27,6 +27,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# debug documentation (should not be committed)
+DEBUG_*.md
+*_VERIFICATION_REPORT.md
+*_UPDATES.md
+
 # local env files
 .env*.local
 .env
