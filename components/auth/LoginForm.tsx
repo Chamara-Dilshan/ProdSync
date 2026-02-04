@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/types/errors"
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -20,7 +21,7 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-export function LoginForm() {
+export function LoginForm(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const router = useRouter()
@@ -34,7 +35,7 @@ export function LoginForm() {
     resolver: zodResolver(loginSchema),
   })
 
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = async (data: LoginFormData): Promise<void> => {
     setIsLoading(true)
     try {
       await signInWithEmail(data.email, data.password)
@@ -43,18 +44,19 @@ export function LoginForm() {
         description: "You have successfully logged in.",
       })
       router.push("/dashboard")
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error)
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: error.message || "Invalid email or password.",
+        description: errorMsg !== "" ? errorMsg : "Invalid email or password.",
       })
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = async (): Promise<void> => {
     setIsGoogleLoading(true)
     try {
       await signInWithGoogle()
@@ -63,11 +65,13 @@ export function LoginForm() {
         description: "You have successfully logged in with Google.",
       })
       router.push("/dashboard")
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error)
       toast({
         variant: "destructive",
         title: "Google sign-in failed",
-        description: error.message || "Could not sign in with Google.",
+        description:
+          errorMsg !== "" ? errorMsg : "Could not sign in with Google.",
       })
     } finally {
       setIsGoogleLoading(false)
@@ -76,7 +80,12 @@ export function LoginForm() {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form
+        onSubmit={(e) => {
+          void handleSubmit(onSubmit)(e)
+        }}
+        className="space-y-4"
+      >
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -86,7 +95,7 @@ export function LoginForm() {
             {...register("email")}
             disabled={isLoading}
           />
-          {errors.email && (
+          {errors.email !== undefined && errors.email !== null && (
             <p className="text-sm text-destructive">{errors.email.message}</p>
           )}
         </div>
@@ -100,7 +109,7 @@ export function LoginForm() {
             {...register("password")}
             disabled={isLoading}
           />
-          {errors.password && (
+          {errors.password !== undefined && errors.password !== null && (
             <p className="text-sm text-destructive">
               {errors.password.message}
             </p>
@@ -127,7 +136,9 @@ export function LoginForm() {
       <Button
         variant="outline"
         className="w-full"
-        onClick={handleGoogleSignIn}
+        onClick={() => {
+          void handleGoogleSignIn()
+        }}
         disabled={isGoogleLoading}
       >
         {isGoogleLoading ? (

@@ -32,8 +32,10 @@ import {
 } from "@/types"
 import { Loader2, Sparkles, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { getErrorMessage } from "@/types/errors"
+import type { GenerateReplyResponse, ApiErrorResponse } from "@/types/api"
 
-export default function MessagesPage() {
+export default function MessagesPage(): JSX.Element {
   const { user } = useAuth()
   const { toast } = useToast()
 
@@ -57,8 +59,10 @@ export default function MessagesPage() {
   const [lastModel, setLastModel] = useState("")
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return
+    const fetchData = async (): Promise<void> => {
+      if (user === null) {
+        return
+      }
       try {
         const [productsData, policiesData, settingsData] = await Promise.all([
           getProducts(user.uid),
@@ -68,17 +72,17 @@ export default function MessagesPage() {
 
         setProducts(productsData)
         setPolicies(policiesData.filter((p) => p.isActive))
-        if (settingsData) {
+        if (settingsData !== null) {
           setSettings(settingsData)
           setTone(settingsData.defaultTone)
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to load message page data:", error)
         toast({
           variant: "destructive",
           title: "Error loading data",
           description:
-            error.message ||
+            getErrorMessage(error) ??
             "Failed to load data. Please check your Firebase configuration.",
         })
       } finally {
@@ -86,14 +90,14 @@ export default function MessagesPage() {
       }
     }
 
-    fetchData()
+    void fetchData()
   }, [user, toast])
 
   const hasApiKey =
-    settings.apiKeys[settings.selectedProvider]?.trim().length > 0
+    (settings.apiKeys[settings.selectedProvider]?.trim().length ?? 0) > 0
 
-  const handleGenerate = async () => {
-    if (!message.trim()) {
+  const handleGenerate = async (): Promise<void> => {
+    if (message.trim() === "") {
       toast({
         variant: "destructive",
         title: "Error",
@@ -116,9 +120,10 @@ export default function MessagesPage() {
 
     try {
       // Prepare context
-      const contextProducts = selectedProductId
-        ? products.filter((p) => p.id === selectedProductId)
-        : products.slice(0, 5) // Limit to 5 products if none selected
+      const contextProducts =
+        selectedProductId !== null
+          ? products.filter((p) => p.id === selectedProductId)
+          : products.slice(0, 5) // Limit to 5 products if none selected
 
       const response = await fetch("/api/ai/generate-reply", {
         method: "POST",
@@ -147,63 +152,60 @@ export default function MessagesPage() {
         }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
+        const errorData = (await response.json()) as ApiErrorResponse
         // Create detailed error message based on error type
-        let errorMessage = data.error || "Failed to generate reply"
-        let errorTitle = "Generation failed"
+        let errorMessage = errorData.error ?? "Failed to generate reply"
 
         // Customize error messages based on error code
         if (response.status === 403 || response.status === 401) {
-          errorTitle = "Invalid API Key"
           errorMessage =
-            data.error ||
+            errorData.error ??
             "Your API key appears to be invalid. Please check your Settings."
         } else if (response.status === 429) {
-          errorTitle = "Rate Limit Exceeded"
           errorMessage =
-            data.error ||
+            errorData.error ??
             "You've hit the API rate limit. Please wait a moment and try again."
         } else if (response.status >= 500) {
-          errorTitle = "Service Unavailable"
           errorMessage =
-            data.error ||
+            errorData.error ??
             "The AI service is temporarily unavailable. Please try again later."
         }
 
         throw new Error(errorMessage)
       }
 
+      const data = (await response.json()) as GenerateReplyResponse
       setGeneratedReply(data.reply)
       setLastProvider(data.provider)
       setLastModel(data.model)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Generation error:", error)
 
       // Determine error title and add helpful suggestions
       let errorTitle = "Generation failed"
-      let errorDescription = error.message || "Failed to generate reply"
+      const errorMsg = getErrorMessage(error)
+      let errorDescription = errorMsg ?? "Failed to generate reply"
 
       // Add helpful suggestions based on error message
       if (
-        error.message?.includes("Invalid API key") ||
-        error.message?.includes("API key")
+        errorMsg?.includes("Invalid API key") === true ||
+        errorMsg?.includes("API key") === true
       ) {
         errorTitle = "Invalid API Key"
-        errorDescription = `${error.message}\n\nPlease go to Settings and verify your API key is correct.`
+        errorDescription = `${errorMsg}\n\nPlease go to Settings and verify your API key is correct.`
       } else if (
-        error.message?.includes("quota") ||
-        error.message?.includes("Rate limit")
+        errorMsg?.includes("quota") === true ||
+        errorMsg?.includes("Rate limit") === true
       ) {
         errorTitle = "Rate Limit Exceeded"
-        errorDescription = `${error.message}\n\nTip: Wait 1-2 minutes before trying again, or consider upgrading to a paid API tier.`
+        errorDescription = `${errorMsg}\n\nTip: Wait 1-2 minutes before trying again, or consider upgrading to a paid API tier.`
       } else if (
-        error.message?.includes("unavailable") ||
-        error.message?.includes("Service")
+        errorMsg?.includes("unavailable") === true ||
+        errorMsg?.includes("Service") === true
       ) {
         errorTitle = "Service Unavailable"
-        errorDescription = `${error.message}\n\nPlease try again in a few moments.`
+        errorDescription = `${errorMsg}\n\nPlease try again in a few moments.`
       }
 
       toast({
@@ -295,8 +297,10 @@ export default function MessagesPage() {
                 </div>
 
                 <Button
-                  onClick={handleGenerate}
-                  disabled={generating || !message.trim() || !hasApiKey}
+                  onClick={() => {
+                    void handleGenerate()
+                  }}
+                  disabled={generating || message.trim() === "" || !hasApiKey}
                   className="w-full"
                   size="lg"
                 >
@@ -347,12 +351,14 @@ export default function MessagesPage() {
 
           {/* Output Section */}
           <div>
-            {generatedReply ? (
+            {generatedReply !== null ? (
               <ReplyPreview
                 reply={generatedReply}
                 provider={lastProvider}
                 model={lastModel}
-                onRegenerate={handleGenerate}
+                onRegenerate={() => {
+                  void handleGenerate()
+                }}
                 isRegenerating={generating}
               />
             ) : (

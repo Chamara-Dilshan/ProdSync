@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/card"
 import { SignupForm } from "@/components/auth/SignupForm"
 
-export default function SignupPage() {
+export default function SignupPage(): JSX.Element {
   return (
     <Card>
       <CardHeader className="text-center">

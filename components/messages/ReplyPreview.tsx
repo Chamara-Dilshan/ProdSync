@@ -20,11 +20,11 @@ export function ReplyPreview({
   model,
   onRegenerate,
   isRegenerating,
-}: ReplyPreviewProps) {
+}: ReplyPreviewProps): React.JSX.Element {
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
 
-  const handleCopy = async () => {
+  const handleCopy = async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(reply)
       setCopied(true)
@@ -32,8 +32,10 @@ export function ReplyPreview({
         title: "Copied!",
         description: "Reply copied to clipboard.",
       })
-      setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
+      setTimeout(() => {
+        setCopied(false)
+      }, 2000)
+    } catch {
       toast({
         variant: "destructive",
         title: "Copy failed",
@@ -63,16 +65,21 @@ export function ReplyPreview({
             variant="outline"
             size="sm"
             onClick={onRegenerate}
-            disabled={isRegenerating}
+            disabled={isRegenerating === true}
           >
-            {isRegenerating ? (
+            {isRegenerating === true ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
               <RefreshCw className="h-4 w-4 mr-2" />
             )}
             Regenerate
           </Button>
-          <Button size="sm" onClick={handleCopy}>
+          <Button
+            size="sm"
+            onClick={(): void => {
+              void handleCopy()
+            }}
+          >
             {copied ? (
               <Check className="h-4 w-4 mr-2" />
             ) : (

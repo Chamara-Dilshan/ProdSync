@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import Link from "next/link"
+import { getErrorMessage } from "@/types/errors"
 
 interface DashboardStats {
   productCount: number
@@ -24,7 +25,7 @@ interface DashboardStats {
   hasApiKeys: boolean
 }
 
-export default function DashboardPage() {
+export default function DashboardPage(): JSX.Element {
   const { user } = useAuth()
   const [stats, setStats] = useState<DashboardStats>({
     productCount: 0,
@@ -35,8 +36,10 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchStats = async () => {
-      if (!user) return
+    const fetchStats = async (): Promise<void> => {
+      if (user === null) {
+        return
+      }
 
       try {
         const [products, policies, settings] = await Promise.all([
@@ -45,13 +48,12 @@ export default function DashboardPage() {
           getUserSettings(user.uid),
         ])
 
-        const hasApiKeys = settings
-          ? !!(
-              settings.apiKeys?.openai ||
-              settings.apiKeys?.gemini ||
-              settings.apiKeys?.anthropic
-            )
-          : false
+        const hasApiKeys =
+          settings !== null
+            ? (settings.apiKeys?.openai ?? "") !== "" ||
+              (settings.apiKeys?.gemini ?? "") !== "" ||
+              (settings.apiKeys?.anthropic ?? "") !== ""
+            : false
 
         setStats({
           productCount: products.length,
@@ -59,15 +61,15 @@ export default function DashboardPage() {
           hasApiKeys,
         })
         setError(null) // Clear any previous errors
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to fetch stats:", error)
-        setError(error.message || "Failed to load dashboard data")
+        setError(getErrorMessage(error))
       } finally {
         setLoading(false)
       }
     }
 
-    fetchStats()
+    void fetchStats()
   }, [user])
 
   return (
@@ -79,7 +81,7 @@ export default function DashboardPage() {
 
       <div className="p-8">
         {/* Error Alert */}
-        {error && (
+        {error !== null && error !== "" && (
           <Card className="mb-6 border-red-200 bg-red-50">
             <CardContent className="p-4 flex items-start gap-4">
               <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
@@ -143,7 +145,9 @@ export default function DashboardPage() {
 
         {/* Getting Started Guide */}
         {!loading &&
-          (!stats.productCount || !stats.policyCount || !stats.hasApiKeys) && (
+          (stats.productCount === 0 ||
+            stats.policyCount === 0 ||
+            !stats.hasApiKeys) && (
             <Card className="mt-8">
               <CardHeader>
                 <CardTitle>Getting Started</CardTitle>
@@ -197,7 +201,7 @@ function StatsCard({
   value: string
   icon: React.ReactNode
   href: string
-}) {
+}): JSX.Element {
   return (
     <Link href={href}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer">
@@ -227,7 +231,7 @@ function QuickActionCard({
   description: string
   href: string
   actionText: string
-}) {
+}): JSX.Element {
   return (
     <Link href={href}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
@@ -255,7 +259,7 @@ function Step({
   description: string
   completed: boolean
   href: string
-}) {
+}): JSX.Element {
   return (
     <Link
       href={href}

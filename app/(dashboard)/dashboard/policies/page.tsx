@@ -20,9 +20,10 @@ import {
   deletePolicy,
 } from "@/lib/firebase/firestore"
 import { Policy } from "@/types"
+import { getErrorMessage } from "@/types/errors"
 import { Plus, Loader2 } from "lucide-react"
 
-export default function PoliciesPage() {
+export default function PoliciesPage(): JSX.Element {
   const { user } = useAuth()
   const { toast } = useToast()
   const [policies, setPolicies] = useState<Policy[]>([])
@@ -33,18 +34,20 @@ export default function PoliciesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchPolicies = async () => {
-      if (!user) return
+    const fetchPolicies = async (): Promise<void> => {
+      if (user === null) {
+        return
+      }
       try {
         const data = await getPolicies(user.uid)
         setPolicies(data)
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to load policies:", error)
         toast({
           variant: "destructive",
           title: "Error loading policies",
           description:
-            error.message ||
+            getErrorMessage(error) ??
             "Failed to load policies. Please check your Firebase configuration.",
         })
       } finally {
@@ -52,27 +55,29 @@ export default function PoliciesPage() {
       }
     }
 
-    fetchPolicies()
+    void fetchPolicies()
   }, [user, toast])
 
-  const handleAddPolicy = () => {
+  const handleAddPolicy = (): void => {
     setEditingPolicy(null)
     setIsDialogOpen(true)
   }
 
-  const handleEditPolicy = (policy: Policy) => {
+  const handleEditPolicy = (policy: Policy): void => {
     setEditingPolicy(policy)
     setIsDialogOpen(true)
   }
 
   const handleSubmitPolicy = async (
     data: Omit<Policy, "id" | "createdAt" | "updatedAt">
-  ) => {
-    if (!user) return
+  ): Promise<void> => {
+    if (user === null) {
+      return
+    }
 
     setIsSubmitting(true)
     try {
-      if (editingPolicy) {
+      if (editingPolicy !== null) {
         await updatePolicy(user.uid, editingPolicy.id, data)
         setPolicies((prev) =>
           prev.map((p) => (p.id === editingPolicy.id ? { ...p, ...data } : p))
@@ -98,21 +103,23 @@ export default function PoliciesPage() {
         })
       }
       setIsDialogOpen(false)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save policy:", error)
       toast({
         variant: "destructive",
         title: "Error saving policy",
         description:
-          error.message || "Failed to save policy. Please try again.",
+          getErrorMessage(error) ?? "Failed to save policy. Please try again.",
       })
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleDeletePolicy = async (policyId: string) => {
-    if (!user) return
+  const handleDeletePolicy = async (policyId: string): Promise<void> => {
+    if (user === null) {
+      return
+    }
 
     setDeletingId(policyId)
     try {
@@ -122,13 +129,14 @@ export default function PoliciesPage() {
         title: "Policy deleted",
         description: "The policy has been removed.",
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to delete policy:", error)
       toast({
         variant: "destructive",
         title: "Error deleting policy",
         description:
-          error.message || "Failed to delete policy. Please try again.",
+          getErrorMessage(error) ??
+          "Failed to delete policy. Please try again.",
       })
     } finally {
       setDeletingId(null)
@@ -164,8 +172,10 @@ export default function PoliciesPage() {
           <PolicyList
             policies={policies}
             onEdit={handleEditPolicy}
-            onDelete={handleDeletePolicy}
-            isDeleting={deletingId || undefined}
+            onDelete={(policyId: string): void => {
+              void handleDeletePolicy(policyId)
+            }}
+            isDeleting={deletingId ?? undefined}
           />
         )}
       </div>
@@ -175,13 +185,13 @@ export default function PoliciesPage() {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>
-              {editingPolicy ? "Edit Policy" : "Add New Policy"}
+              {editingPolicy !== null ? "Edit Policy" : "Add New Policy"}
             </DialogTitle>
           </DialogHeader>
           <PolicyForm
-            policy={editingPolicy || undefined}
+            policy={editingPolicy ?? undefined}
             onSubmit={handleSubmitPolicy}
-            onCancel={() => setIsDialogOpen(false)}
+            onCancel={(): void => setIsDialogOpen(false)}
             isLoading={isSubmitting}
           />
         </DialogContent>

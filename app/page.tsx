@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowRight, MessageSquare, Package, Shield, Zap } from "lucide-react"
 
-export default function HomePage() {
+export default function HomePage(): React.ReactElement {
   const { user, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user !== null) {
       router.push("/dashboard")
     }
   }, [user, loading, router])
@@ -107,7 +107,7 @@ function FeatureCard({
   icon: React.ReactNode
   title: string
   description: string
-}) {
+}): React.ReactElement {
   return (
     <div className="p-6 bg-white rounded-xl border shadow-sm hover:shadow-md transition-shadow">
       <div className="mb-4">{icon}</div>

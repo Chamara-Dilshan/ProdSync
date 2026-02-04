@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/types/errors"
 
 const signupSchema = z
   .object({
@@ -27,7 +28,7 @@ const signupSchema = z
 
 type SignupFormData = z.infer<typeof signupSchema>
 
-export function SignupForm() {
+export function SignupForm(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const router = useRouter()
@@ -41,7 +42,7 @@ export function SignupForm() {
     resolver: zodResolver(signupSchema),
   })
 
-  const onSubmit = async (data: SignupFormData) => {
+  const onSubmit = async (data: SignupFormData): Promise<void> => {
     setIsLoading(true)
     try {
       await signUpWithEmail(data.email, data.password, data.name)
@@ -50,18 +51,19 @@ export function SignupForm() {
         description: "Welcome to ProdSync.",
       })
       router.push("/dashboard")
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error)
       toast({
         variant: "destructive",
         title: "Sign up failed",
-        description: error.message || "Could not create account.",
+        description: errorMsg !== "" ? errorMsg : "Could not create account.",
       })
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = async (): Promise<void> => {
     setIsGoogleLoading(true)
     try {
       await signInWithGoogle()
@@ -70,11 +72,13 @@ export function SignupForm() {
         description: "Your account has been created with Google.",
       })
       router.push("/dashboard")
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error)
       toast({
         variant: "destructive",
         title: "Google sign-in failed",
-        description: error.message || "Could not sign in with Google.",
+        description:
+          errorMsg !== "" ? errorMsg : "Could not sign in with Google.",
       })
     } finally {
       setIsGoogleLoading(false)
@@ -83,7 +87,12 @@ export function SignupForm() {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form
+        onSubmit={(e): void => {
+          void handleSubmit(onSubmit)(e)
+        }}
+        className="space-y-4"
+      >
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input
@@ -93,7 +102,7 @@ export function SignupForm() {
             {...register("name")}
             disabled={isLoading}
           />
-          {errors.name && (
+          {errors.name !== undefined && errors.name !== null && (
             <p className="text-sm text-destructive">{errors.name.message}</p>
           )}
         </div>
@@ -107,7 +116,7 @@ export function SignupForm() {
             {...register("email")}
             disabled={isLoading}
           />
-          {errors.email && (
+          {errors.email !== undefined && errors.email !== null && (
             <p className="text-sm text-destructive">{errors.email.message}</p>
           )}
         </div>
@@ -121,7 +130,7 @@ export function SignupForm() {
             {...register("password")}
             disabled={isLoading}
           />
-          {errors.password && (
+          {errors.password !== undefined && errors.password !== null && (
             <p className="text-sm text-destructive">
               {errors.password.message}
             </p>
@@ -137,11 +146,12 @@ export function SignupForm() {
             {...register("confirmPassword")}
             disabled={isLoading}
           />
-          {errors.confirmPassword && (
-            <p className="text-sm text-destructive">
-              {errors.confirmPassword.message}
-            </p>
-          )}
+          {errors.confirmPassword !== undefined &&
+            errors.confirmPassword !== null && (
+              <p className="text-sm text-destructive">
+                {errors.confirmPassword.message}
+              </p>
+            )}
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
@@ -164,7 +174,9 @@ export function SignupForm() {
       <Button
         variant="outline"
         className="w-full"
-        onClick={handleGoogleSignIn}
+        onClick={(): void => {
+          void handleGoogleSignIn()
+        }}
         disabled={isGoogleLoading}
       >
         {isGoogleLoading ? (

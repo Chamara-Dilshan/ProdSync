@@ -23,9 +23,10 @@ import {
   bulkCreateProducts,
 } from "@/lib/firebase/firestore"
 import { Product } from "@/types"
+import { getErrorMessage } from "@/types/errors"
 import { Plus, Loader2 } from "lucide-react"
 
-export default function ProductsPage() {
+export default function ProductsPage(): JSX.Element {
   const { user } = useAuth()
   const { toast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
@@ -37,18 +38,20 @@ export default function ProductsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      if (!user) return
+    const fetchProducts = async (): Promise<void> => {
+      if (user === null) {
+        return
+      }
       try {
         const data = await getProducts(user.uid)
         setProducts(data)
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to load products:", error)
         toast({
           variant: "destructive",
           title: "Error loading products",
           description:
-            error.message ||
+            getErrorMessage(error) ??
             "Failed to load products. Please check your Firebase configuration.",
         })
       } finally {
@@ -56,27 +59,29 @@ export default function ProductsPage() {
       }
     }
 
-    fetchProducts()
+    void fetchProducts()
   }, [user, toast])
 
-  const handleAddProduct = () => {
+  const handleAddProduct = (): void => {
     setEditingProduct(null)
     setIsDialogOpen(true)
   }
 
-  const handleEditProduct = (product: Product) => {
+  const handleEditProduct = (product: Product): void => {
     setEditingProduct(product)
     setIsDialogOpen(true)
   }
 
   const handleSubmitProduct = async (
     data: Omit<Product, "id" | "createdAt" | "updatedAt">
-  ) => {
-    if (!user) return
+  ): Promise<void> => {
+    if (user === null) {
+      return
+    }
 
     setIsSubmitting(true)
     try {
-      if (editingProduct) {
+      if (editingProduct !== null) {
         await updateProduct(user.uid, editingProduct.id, data)
         setProducts((prev) =>
           prev.map((p) => (p.id === editingProduct.id ? { ...p, ...data } : p))
@@ -102,21 +107,23 @@ export default function ProductsPage() {
         })
       }
       setIsDialogOpen(false)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save product:", error)
       toast({
         variant: "destructive",
         title: "Error saving product",
         description:
-          error.message || "Failed to save product. Please try again.",
+          getErrorMessage(error) ?? "Failed to save product. Please try again.",
       })
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (!user) return
+  const handleDeleteProduct = async (productId: string): Promise<void> => {
+    if (user === null) {
+      return
+    }
 
     setDeletingId(productId)
     try {
@@ -126,13 +133,14 @@ export default function ProductsPage() {
         title: "Product deleted",
         description: "The product has been removed.",
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to delete product:", error)
       toast({
         variant: "destructive",
         title: "Error deleting product",
         description:
-          error.message || "Failed to delete product. Please try again.",
+          getErrorMessage(error) ??
+          "Failed to delete product. Please try again.",
       })
     } finally {
       setDeletingId(null)
@@ -141,8 +149,10 @@ export default function ProductsPage() {
 
   const handleImportProducts = async (
     importedProducts: Omit<Product, "id" | "createdAt" | "updatedAt">[]
-  ) => {
-    if (!user) return
+  ): Promise<void> => {
+    if (user === null) {
+      return
+    }
 
     setIsImporting(true)
     try {
@@ -159,13 +169,14 @@ export default function ProductsPage() {
         title: "Import successful",
         description: `${importedProducts.length} products have been imported.`,
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to import products:", error)
       toast({
         variant: "destructive",
         title: "Import failed",
         description:
-          error.message || "Failed to import products. Please try again.",
+          getErrorMessage(error) ??
+          "Failed to import products. Please try again.",
       })
     } finally {
       setIsImporting(false)
@@ -202,15 +213,19 @@ export default function ProductsPage() {
               <ProductList
                 products={products}
                 onEdit={handleEditProduct}
-                onDelete={handleDeleteProduct}
-                isDeleting={deletingId || undefined}
+                onDelete={(productId: string) => {
+                  void handleDeleteProduct(productId)
+                }}
+                isDeleting={deletingId ?? undefined}
               />
             )}
           </TabsContent>
 
           <TabsContent value="import">
             <ExcelUploader
-              onProductsParsed={handleImportProducts}
+              onProductsParsed={(products) => {
+                void handleImportProducts(products)
+              }}
               isUploading={isImporting}
             />
           </TabsContent>
@@ -222,13 +237,17 @@ export default function ProductsPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingProduct ? "Edit Product" : "Add New Product"}
+              {editingProduct !== null ? "Edit Product" : "Add New Product"}
             </DialogTitle>
           </DialogHeader>
           <ProductForm
-            product={editingProduct || undefined}
-            onSubmit={handleSubmitProduct}
-            onCancel={() => setIsDialogOpen(false)}
+            product={editingProduct ?? undefined}
+            onSubmit={(data) => {
+              void handleSubmitProduct(data)
+            }}
+            onCancel={() => {
+              setIsDialogOpen(false)
+            }}
             isLoading={isSubmitting}
           />
         </DialogContent>

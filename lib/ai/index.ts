@@ -22,8 +22,10 @@ export function getAIProvider(
       return new GeminiProvider(apiKey)
     case "anthropic":
       return new AnthropicProvider(apiKey)
-    default:
-      throw new Error(`Unknown AI provider: ${provider}`)
+    default: {
+      const _exhaustiveCheck: never = provider
+      throw new Error(`Unknown AI provider: ${String(_exhaustiveCheck)}`)
+    }
   }
 }
 

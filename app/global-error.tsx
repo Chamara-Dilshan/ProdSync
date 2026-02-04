@@ -73,38 +73,42 @@ export default function GlobalError({
                 Reload Page
               </button>
             </div>
-            {process.env.NODE_ENV === "development" && error && (
-              <div
-                style={{
-                  marginTop: "2rem",
-                  padding: "1rem",
-                  backgroundColor: "#f5f5f5",
-                  borderRadius: "0.375rem",
-                  textAlign: "left",
-                }}
-              >
-                <p
+            {process.env.NODE_ENV === "development" &&
+              error !== null &&
+              error !== undefined && (
+                <div
                   style={{
-                    fontSize: "0.875rem",
-                    fontWeight: "600",
-                    marginBottom: "0.5rem",
+                    marginTop: "2rem",
+                    padding: "1rem",
+                    backgroundColor: "#f5f5f5",
+                    borderRadius: "0.375rem",
+                    textAlign: "left",
                   }}
                 >
-                  Error Details (Development Only):
-                </p>
-                <pre
-                  style={{
-                    fontSize: "0.75rem",
-                    overflow: "auto",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-all",
-                  }}
-                >
-                  {error.message}
-                  {error.stack && `\n\n${error.stack}`}
-                </pre>
-              </div>
-            )}
+                  <p
+                    style={{
+                      fontSize: "0.875rem",
+                      fontWeight: "600",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    Error Details (Development Only):
+                  </p>
+                  <pre
+                    style={{
+                      fontSize: "0.75rem",
+                      overflow: "auto",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {error.message.length > 0 ? error.message : "Unknown error"}
+                    {error.stack !== undefined &&
+                      error.stack.length > 0 &&
+                      `\n\n${error.stack}`}
+                  </pre>
+                </div>
+              )}
           </div>
         </div>
       </body>

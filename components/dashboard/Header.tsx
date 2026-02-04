@@ -8,11 +8,16 @@ interface HeaderProps {
   description?: string
 }
 
-export function Header({ title, description }: HeaderProps) {
+export function Header({
+  title,
+  description,
+}: HeaderProps): React.ReactElement {
   const { user } = useAuth()
 
   const getInitials = (name: string | null | undefined): string => {
-    if (!name) {return "U"}
+    if (name === null || name === undefined || name.length === 0) {
+      return "U"
+    }
     return name
       .split(" ")
       .map((n) => n[0])
@@ -25,7 +30,7 @@ export function Header({ title, description }: HeaderProps) {
     <header className="bg-white border-b px-8 py-6 flex justify-between items-center">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-        {description && (
+        {description !== undefined && description.length > 0 && (
           <p className="text-sm text-gray-500 mt-1">{description}</p>
         )}
       </div>
@@ -33,12 +38,12 @@ export function Header({ title, description }: HeaderProps) {
       <div className="flex items-center gap-4">
         <div className="text-right">
           <p className="text-sm font-medium text-gray-900">
-            {user?.displayName || "User"}
+            {user?.displayName ?? "User"}
           </p>
-          <p className="text-xs text-gray-500">{user?.email}</p>
+          <p className="text-xs text-gray-500">{user?.email ?? ""}</p>
         </div>
         <Avatar>
-          <AvatarImage src={user?.photoURL || undefined} />
+          <AvatarImage src={user?.photoURL ?? undefined} />
           <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
         </Avatar>
       </div>

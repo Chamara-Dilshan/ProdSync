@@ -19,7 +19,7 @@ interface ExcelUploaderProps {
 export function ExcelUploader({
   onProductsParsed,
   isUploading,
-}: ExcelUploaderProps) {
+}: ExcelUploaderProps): React.JSX.Element {
   const [file, setFile] = useState<File | null>(null)
   const [parsing, setParsing] = useState(false)
   const [preview, setPreview] = useState<
@@ -27,10 +27,12 @@ export function ExcelUploader({
   >([])
   const { toast } = useToast()
 
-  const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
+  const handleDrop = useCallback(
+    async (acceptedFiles: File[]): Promise<void> => {
       const selectedFile = acceptedFiles[0]
-      if (!selectedFile) return
+      if (selectedFile === null || selectedFile === undefined) {
+        return
+      }
 
       setFile(selectedFile)
       setParsing(true)
@@ -63,7 +65,9 @@ export function ExcelUploader({
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
+    onDrop: (files): void => {
+      void handleDrop(files)
+    },
     accept: {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
         ".xlsx",
@@ -73,7 +77,7 @@ export function ExcelUploader({
     maxFiles: 1,
   })
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = (): void => {
     const blob = generateExcelTemplate()
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -83,13 +87,13 @@ export function ExcelUploader({
     URL.revokeObjectURL(url)
   }
 
-  const handleImport = () => {
+  const handleImport = (): void => {
     if (preview.length > 0) {
       onProductsParsed(preview)
     }
   }
 
-  const handleClear = () => {
+  const handleClear = (): void => {
     setFile(null)
     setPreview([])
   }
@@ -105,7 +109,7 @@ export function ExcelUploader({
       </div>
 
       {/* Dropzone */}
-      {!file && (
+      {file === null && (
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
@@ -128,7 +132,7 @@ export function ExcelUploader({
       )}
 
       {/* File Info */}
-      {file && (
+      {file !== null && (
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">

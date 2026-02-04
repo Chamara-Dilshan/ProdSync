@@ -19,14 +19,15 @@ export function ProductList({
   onEdit,
   onDelete,
   isDeleting,
-}: ProductListProps) {
+}: ProductListProps): React.JSX.Element {
   const [search, setSearch] = useState("")
 
   const filteredProducts = products.filter(
     (product) =>
       product.name.toLowerCase().includes(search.toLowerCase()) ||
-      product.description?.toLowerCase().includes(search.toLowerCase()) ||
-      product.sku?.toLowerCase().includes(search.toLowerCase())
+      product.description?.toLowerCase().includes(search.toLowerCase()) ===
+        true ||
+      product.sku?.toLowerCase().includes(search.toLowerCase()) === true
   )
 
   if (products.length === 0) {
@@ -127,14 +128,18 @@ export function ProductList({
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => onEdit(product)}
+                      onClick={() => {
+                        onEdit(product)
+                      }}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => onDelete(product.id)}
+                      onClick={() => {
+                        onDelete(product.id)
+                      }}
                       disabled={isDeleting === product.id}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />

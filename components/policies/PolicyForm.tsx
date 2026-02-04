@@ -40,7 +40,7 @@ export function PolicyForm({
   onSubmit,
   onCancel,
   isLoading,
-}: PolicyFormProps) {
+}: PolicyFormProps): React.JSX.Element {
   const {
     register,
     handleSubmit,
@@ -50,16 +50,16 @@ export function PolicyForm({
   } = useForm<PolicyFormData>({
     resolver: zodResolver(policySchema),
     defaultValues: {
-      type: policy?.type || "refund",
-      title: policy?.title || "",
-      content: policy?.content || "",
+      type: policy?.type ?? "refund",
+      title: policy?.title ?? "",
+      content: policy?.content ?? "",
       isActive: policy?.isActive ?? true,
     },
   })
 
   const selectedType = watch("type")
 
-  const handleFormSubmit = async (data: PolicyFormData) => {
+  const handleFormSubmit = async (data: PolicyFormData): Promise<void> => {
     await onSubmit({
       type: data.type as PolicyType,
       title: data.title,
@@ -69,7 +69,12 @@ export function PolicyForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+    <form
+      onSubmit={(e) => {
+        void handleSubmit(handleFormSubmit)(e)
+      }}
+      className="space-y-4"
+    >
       <div className="space-y-2">
         <Label htmlFor="type">Policy Type *</Label>
         <Select

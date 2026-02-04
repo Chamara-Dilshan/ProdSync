@@ -30,7 +30,11 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
           const rowNum = index + 2 // Excel rows start at 1, plus header row
 
           // Validate required fields
-          if (!row.name || row.name.toString().trim() === "") {
+          if (
+            row.name === null ||
+            row.name === undefined ||
+            row.name.toString().trim() === ""
+          ) {
             errors.push(`Row ${rowNum}: Product name is required`)
             return
           }
@@ -38,22 +42,25 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
           // Parse and validate the product
           const product: Omit<Product, "id" | "createdAt" | "updatedAt"> = {
             name: row.name.toString().trim(),
-            description: row.description?.toString().trim() || undefined,
+            description: row.description?.toString().trim() ?? undefined,
             price:
               typeof row.price === "number"
                 ? row.price
-                : parseFloat(row.price?.toString() || "0") || undefined,
-            currency: row.currency?.toString().trim() || "USD",
+                : (() => {
+                    const parsed = parseFloat(row.price?.toString() ?? "0")
+                    return parsed !== 0 && !isNaN(parsed) ? parsed : undefined
+                  })(),
+            currency: row.currency?.toString().trim() ?? "USD",
             sizes: parseCommaSeparated(row.sizes),
             colors: parseCommaSeparated(row.colors),
             materials: parseCommaSeparated(row.materials),
             careInstructions:
-              row.careInstructions?.toString().trim() || undefined,
+              row.careInstructions?.toString().trim() ?? undefined,
             customizationOptions:
-              row.customizationOptions?.toString().trim() || undefined,
-            processingTime: row.processingTime?.toString().trim() || undefined,
+              row.customizationOptions?.toString().trim() ?? undefined,
+            processingTime: row.processingTime?.toString().trim() ?? undefined,
             tags: parseCommaSeparated(row.tags),
-            sku: row.sku?.toString().trim() || undefined,
+            sku: row.sku?.toString().trim() ?? undefined,
           }
 
           products.push(product)
@@ -64,7 +71,7 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
           data: products,
           errors,
         })
-      } catch (error) {
+      } catch {
         resolve({
           success: false,
           data: [],
@@ -86,7 +93,9 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
 }
 
 function parseCommaSeparated(value: string | undefined): string[] | undefined {
-  if (!value) {return undefined}
+  if (value === null || value === undefined || value === "") {
+    return undefined
+  }
   const items = value
     .toString()
     .split(",")
@@ -133,7 +142,10 @@ export function generateExcelTemplate(): Blob {
     { wch: 15 }, // sku
   ]
 
-  const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
+  const buffer = XLSX.write(workbook, {
+    bookType: "xlsx",
+    type: "array",
+  }) as ArrayBuffer
   return new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   })

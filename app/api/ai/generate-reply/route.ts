@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAIProvider } from "@/lib/ai"
 import { AIContext, AIProvider, ToneType } from "@/types"
+import { getErrorCode, getErrorMessage, errorIncludes } from "@/types/errors"
+import type { GenerateReplyResponse, ApiErrorResponse } from "@/types/api"
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse<GenerateReplyResponse | ApiErrorResponse>> {
   let provider: AIProvider | undefined
   try {
-    const body = await request.json()
-    const {
-      message,
-      products,
-      policies,
-      provider: providerFromBody,
-      model,
-      apiKey,
-      tone,
-    } = body as {
+    const body = (await request.json()) as {
       message: string
       products: AIContext["products"]
       policies: AIContext["policies"]
@@ -23,19 +18,29 @@ export async function POST(request: NextRequest) {
       apiKey: string
       tone: ToneType
     }
+    const {
+      message,
+      products,
+      policies,
+      provider: providerFromBody,
+      model,
+      apiKey,
+      tone,
+    } = body
     provider = providerFromBody
 
     // Auto-migrate deprecated models
     let modelToUse = model
     if (model === "gemini-2.0-flash") {
       modelToUse = "gemini-2.5-flash"
+      // eslint-disable-next-line no-console
       console.log(
         `⚠️ Auto-migrating from deprecated model ${model} to ${modelToUse}`
       )
     }
 
     // Validate required fields
-    if (!message || !provider || !apiKey) {
+    if (message.length === 0 || provider.length === 0 || apiKey.length === 0) {
       return NextResponse.json(
         { error: "Missing required fields: message, provider, apiKey" },
         { status: 400 }
@@ -44,40 +49,41 @@ export async function POST(request: NextRequest) {
 
     // Build context
     const context: AIContext = {
-      products: products || [],
-      policies: policies || [],
-      tone: tone || "professional",
+      products: products ?? [],
+      policies: policies ?? [],
+      tone: tone ?? "professional",
     }
 
     // Get AI provider and generate reply
     const aiProvider = getAIProvider(provider, apiKey)
     const reply = await aiProvider.generateReply(message, context, modelToUse)
 
-    return NextResponse.json({
+    return NextResponse.json<GenerateReplyResponse>({
       reply,
       provider,
       model,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorCode = getErrorCode(error)
+    const errorMessage = getErrorMessage(error).toLowerCase()
+
+    // eslint-disable-next-line no-console
     console.error("AI generation error:", {
-      code: error.status || error.code,
-      message: error.message,
+      code: errorCode,
+      message: errorMessage,
       provider,
     })
-
-    const errorCode = error.status || error.code || 500
-    const errorMessage = error.message?.toLowerCase() || ""
 
     // Invalid API key (authentication errors)
     if (
       errorCode === 401 ||
       errorCode === 403 ||
-      errorMessage.includes("api key") ||
-      errorMessage.includes("authentication")
+      errorIncludes(error, "api key") ||
+      errorIncludes(error, "authentication")
     ) {
-      return NextResponse.json(
+      return NextResponse.json<ApiErrorResponse>(
         {
-          error: `Invalid API key for ${provider}. Please check your Settings and ensure you've entered the correct key.`,
+          error: `Invalid API key for ${provider ?? "provider"}. Please check your Settings and ensure you've entered the correct key.`,
           errorCode: 403,
         },
         { status: 403 }
@@ -87,17 +93,17 @@ export async function POST(request: NextRequest) {
     // Rate limit - distinguish between quota and rate
     if (
       errorCode === 429 ||
-      errorMessage.includes("rate") ||
-      errorMessage.includes("quota")
+      errorIncludes(error, "rate") ||
+      errorIncludes(error, "quota")
     ) {
       // Check if it's quota exceeded (common with free-tier keys)
       if (
-        errorMessage.includes("quota") ||
-        errorMessage.includes("limit exceeded")
+        errorIncludes(error, "quota") ||
+        errorIncludes(error, "limit exceeded")
       ) {
-        return NextResponse.json(
+        return NextResponse.json<ApiErrorResponse>(
           {
-            error: `API quota exceeded for ${provider}. If you're using a free-tier API key, you may have hit your daily/monthly limit. Consider upgrading your API plan or try again later.`,
+            error: `API quota exceeded for ${provider ?? "provider"}. If you're using a free-tier API key, you may have hit your daily/monthly limit. Consider upgrading your API plan or try again later.`,
             errorCode: 429,
             suggestion: "Wait 1-2 minutes or upgrade to a paid API tier",
           },
@@ -106,9 +112,9 @@ export async function POST(request: NextRequest) {
       }
 
       // General rate limiting
-      return NextResponse.json(
+      return NextResponse.json<ApiErrorResponse>(
         {
-          error: `Rate limit exceeded for ${provider}. Please wait 1-2 minutes and try again. If this persists, you may have exceeded your API quota.`,
+          error: `Rate limit exceeded for ${provider ?? "provider"}. Please wait 1-2 minutes and try again. If this persists, you may have exceeded your API quota.`,
           errorCode: 429,
           suggestion: "Wait 1-2 minutes before trying again",
         },
@@ -118,9 +124,9 @@ export async function POST(request: NextRequest) {
 
     // Service errors
     if (errorCode >= 500) {
-      return NextResponse.json(
+      return NextResponse.json<ApiErrorResponse>(
         {
-          error: `${provider} service is temporarily unavailable. Please try again in a moment.`,
+          error: `${provider ?? "Provider"} service is temporarily unavailable. Please try again in a moment.`,
           errorCode,
         },
         { status: 503 }
@@ -129,9 +135,9 @@ export async function POST(request: NextRequest) {
 
     // Bad request errors
     if (errorCode >= 400 && errorCode < 500) {
-      return NextResponse.json(
+      return NextResponse.json<ApiErrorResponse>(
         {
-          error: `Invalid request to ${provider}: ${error.message || "Please check your input and try again."}`,
+          error: `Invalid request to ${provider ?? "provider"}: ${errorMessage !== "" ? errorMessage : "Please check your input and try again."}`,
           errorCode,
         },
         { status: errorCode }
@@ -139,9 +145,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Generic error
-    return NextResponse.json(
+    return NextResponse.json<ApiErrorResponse>(
       {
-        error: error.message || "Failed to generate reply. Please try again.",
+        error:
+          errorMessage !== ""
+            ? errorMessage
+            : "Failed to generate reply. Please try again.",
         errorCode: 500,
       },
       { status: 500 }

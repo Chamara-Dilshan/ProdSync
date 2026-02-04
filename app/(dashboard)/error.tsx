@@ -42,14 +42,14 @@ export default function DashboardError({
               Error Details (Development Only):
             </p>
             <p className="text-xs font-mono text-muted-foreground break-all">
-              {error.message}
+              {error.message.length > 0 ? error.message : "Unknown error"}
             </p>
-            {error.digest && (
+            {error.digest !== undefined && error.digest.length > 0 && (
               <p className="mt-2 text-xs text-muted-foreground">
                 Digest: {error.digest}
               </p>
             )}
-            {error.stack && (
+            {error.stack !== undefined && error.stack.length > 0 && (
               <details className="mt-3">
                 <summary className="cursor-pointer text-xs font-medium">
                   Stack Trace

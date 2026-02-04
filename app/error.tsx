@@ -41,8 +41,10 @@ export default function Error({
             <p className="mb-2 text-sm font-semibold text-destructive">
               Error Details (Development Only):
             </p>
-            <p className="text-xs text-muted-foreground">{error.message}</p>
-            {error.digest && (
+            <p className="text-xs text-muted-foreground">
+              {error.message.length > 0 ? error.message : "Unknown error"}
+            </p>
+            {error.digest !== undefined && error.digest.length > 0 && (
               <p className="mt-2 text-xs text-muted-foreground">
                 Digest: {error.digest}
               </p>

@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/card"
 import { LoginForm } from "@/components/auth/LoginForm"
 
-export default function LoginPage() {
+export default function LoginPage(): JSX.Element {
   return (
     <Card>
       <CardHeader className="text-center">

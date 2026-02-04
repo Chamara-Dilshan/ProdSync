@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAIProvider } from "@/lib/ai"
 import { AIProvider } from "@/types"
+import { getErrorCode, getErrorMessage, errorIncludes } from "@/types/errors"
+import type { ValidateKeyResponse } from "@/types/api"
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse<ValidateKeyResponse>> {
   try {
-    const body = await request.json()
-    const { provider, apiKey } = body as {
+    const body = (await request.json()) as {
       provider: AIProvider
       apiKey: string
     }
+    const { provider, apiKey } = body
 
     // Validate required fields
-    if (!provider || !apiKey) {
+    if (provider.length === 0 || apiKey.length === 0) {
       return NextResponse.json(
         {
           valid: false,
@@ -41,24 +45,28 @@ export async function POST(request: NextRequest) {
         undefined // Use default model
       )
 
-      return NextResponse.json({
+      return NextResponse.json<ValidateKeyResponse>({
         valid: true,
         message: `${provider} API key is valid and ready to use.`,
       })
-    } catch (error: any) {
-      console.error(`API key validation error for ${provider}:`, error)
+    } catch (error: unknown) {
+      const errorCode = getErrorCode(error)
+      const errorMsg = getErrorMessage(error)
 
-      const errorCode = error.status || error.code || 500
-      const errorMessage = error.message?.toLowerCase() || ""
+      // eslint-disable-next-line no-console
+      console.error(`API key validation error for ${provider}:`, {
+        code: errorCode,
+        message: errorMsg,
+      })
 
       // Invalid API key (authentication errors)
       if (
         errorCode === 401 ||
         errorCode === 403 ||
-        errorMessage.includes("api key") ||
-        errorMessage.includes("authentication")
+        errorIncludes(error, "api key") ||
+        errorIncludes(error, "authentication")
       ) {
-        return NextResponse.json({
+        return NextResponse.json<ValidateKeyResponse>({
           valid: false,
           errorCode,
           errorMessage: `Invalid ${provider} API key. Please verify your key is correct and try again.`,
@@ -68,10 +76,10 @@ export async function POST(request: NextRequest) {
       // Rate limit during validation (likely free tier)
       if (
         errorCode === 429 ||
-        errorMessage.includes("rate") ||
-        errorMessage.includes("quota")
+        errorIncludes(error, "rate") ||
+        errorIncludes(error, "quota")
       ) {
-        return NextResponse.json({
+        return NextResponse.json<ValidateKeyResponse>({
           valid: true, // Key is likely valid, just hitting limits
           warning: true,
           message: `Your ${provider} API key appears to be valid, but you're on a free tier with limited requests. Consider upgrading for better performance.`,
@@ -80,7 +88,7 @@ export async function POST(request: NextRequest) {
 
       // Network or service errors
       if (errorCode >= 500) {
-        return NextResponse.json({
+        return NextResponse.json<ValidateKeyResponse>({
           valid: false,
           errorCode,
           errorMessage: `${provider} service is temporarily unavailable. Your API key may be valid, but we couldn't verify it. Please try again later.`,
@@ -88,15 +96,16 @@ export async function POST(request: NextRequest) {
       }
 
       // Generic error
-      return NextResponse.json({
+      return NextResponse.json<ValidateKeyResponse>({
         valid: false,
         errorCode,
-        errorMessage: `Validation failed: ${error.message || "Unknown error"}. Please check your API key and try again.`,
+        errorMessage: `Validation failed: ${errorMsg.length > 0 ? errorMsg : "Unknown error"}. Please check your API key and try again.`,
       })
     }
-  } catch (error: any) {
-    console.error("Validation endpoint error:", error)
-    return NextResponse.json(
+  } catch (error: unknown) {
+    // eslint-disable-next-line no-console
+    console.error("Validation endpoint error:", getErrorMessage(error))
+    return NextResponse.json<ValidateKeyResponse>(
       {
         valid: false,
         errorMessage: "An error occurred during validation. Please try again.",

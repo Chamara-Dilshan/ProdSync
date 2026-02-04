@@ -7,39 +7,38 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where,
   orderBy,
-  limit,
   serverTimestamp,
   DocumentData,
-  QueryConstraint,
   Timestamp,
 } from "firebase/firestore"
 import { db } from "./config"
 import { Product, Policy, UserSettings } from "@/types"
 
 // Helper function to convert Firestore Timestamp to Date
-function convertTimestamps(data: any): any {
-  if (data && typeof data === "object") {
-    const converted: any = {}
+function convertTimestamps<T = DocumentData>(data: T): T {
+  if (data !== null && data !== undefined && typeof data === "object") {
+    const converted: Record<string, unknown> = {}
     for (const key in data) {
-      if (data[key] instanceof Timestamp) {
-        converted[key] = data[key].toDate()
-      } else if (typeof data[key] === "object" && data[key] !== null) {
-        converted[key] = convertTimestamps(data[key])
+      const value = data[key]
+      if (value instanceof Timestamp) {
+        converted[key] = value.toDate()
+      } else if (typeof value === "object" && value !== null) {
+        converted[key] = convertTimestamps(value)
       } else {
-        converted[key] = data[key]
+        converted[key] = value
       }
     }
-    return converted
+    return converted as T
   }
   return data
 }
 
 // Helper function to format Firebase errors for users
-function formatFirebaseError(error: any, operation: string): Error {
-  const errorCode = error?.code || "unknown"
-  const errorMessage = error?.message || "An unknown error occurred"
+function formatFirebaseError(error: unknown, operation: string): Error {
+  const errorCode = (error as { code?: string })?.code ?? "unknown"
+  const errorMessage =
+    (error as { message?: string })?.message ?? "An unknown error occurred"
 
   console.error(`Firebase ${operation} error:`, {
     code: errorCode,
@@ -100,7 +99,9 @@ export async function getProduct(
   const productRef = doc(db, "users", userId, "products", productId)
   const productSnap = await getDoc(productRef)
 
-  if (!productSnap.exists()) {return null}
+  if (!productSnap.exists()) {
+    return null
+  }
 
   return { id: productSnap.id, ...productSnap.data() } as Product
 }
@@ -190,7 +191,9 @@ export async function getPolicy(
   const policyRef = doc(db, "users", userId, "policies", policyId)
   const policySnap = await getDoc(policyRef)
 
-  if (!policySnap.exists()) {return null}
+  if (!policySnap.exists()) {
+    return null
+  }
 
   return { id: policySnap.id, ...policySnap.data() } as Policy
 }
@@ -252,7 +255,9 @@ export async function getUserSettings(
     const settingsRef = doc(db, "users", userId, "settings", "general")
     const settingsSnap = await getDoc(settingsRef)
 
-    if (!settingsSnap.exists()) {return null}
+    if (!settingsSnap.exists()) {
+      return null
+    }
 
     return convertTimestamps(settingsSnap.data()) as UserSettings
   } catch (error) {

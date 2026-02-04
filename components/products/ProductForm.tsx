@@ -41,7 +41,7 @@ export function ProductForm({
   onSubmit,
   onCancel,
   isLoading,
-}: ProductFormProps) {
+}: ProductFormProps): React.JSX.Element {
   const {
     register,
     handleSubmit,
@@ -49,51 +49,84 @@ export function ProductForm({
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      name: product?.name || "",
-      description: product?.description || "",
-      price: product?.price?.toString() || "",
-      currency: product?.currency || "USD",
-      sizes: product?.sizes?.join(", ") || "",
-      colors: product?.colors?.join(", ") || "",
-      materials: product?.materials?.join(", ") || "",
-      careInstructions: product?.careInstructions || "",
-      customizationOptions: product?.customizationOptions || "",
-      processingTime: product?.processingTime || "",
-      tags: product?.tags?.join(", ") || "",
-      sku: product?.sku || "",
+      name: product?.name ?? "",
+      description: product?.description ?? "",
+      price: product?.price?.toString() ?? "",
+      currency: product?.currency ?? "USD",
+      sizes: product?.sizes?.join(", ") ?? "",
+      colors: product?.colors?.join(", ") ?? "",
+      materials: product?.materials?.join(", ") ?? "",
+      careInstructions: product?.careInstructions ?? "",
+      customizationOptions: product?.customizationOptions ?? "",
+      processingTime: product?.processingTime ?? "",
+      tags: product?.tags?.join(", ") ?? "",
+      sku: product?.sku ?? "",
     },
   })
 
-  const handleFormSubmit = async (data: ProductFormData) => {
+  const handleFormSubmit = async (data: ProductFormData): Promise<void> => {
     const parseCommaSeparated = (
       value: string | undefined
     ): string[] | undefined => {
-      if (!value) return undefined
+      if (value === null || value === undefined || value.length === 0) {
+        return undefined
+      }
       const items = value
         .split(",")
         .map((item) => item.trim())
-        .filter((item) => item !== "")
+        .filter((item) => item.length > 0)
       return items.length > 0 ? items : undefined
     }
 
     await onSubmit({
       name: data.name,
-      description: data.description || undefined,
-      price: data.price ? parseFloat(data.price) : undefined,
-      currency: data.currency || "USD",
+      description:
+        data.description === null ||
+        data.description === undefined ||
+        data.description.length === 0
+          ? undefined
+          : data.description,
+      price:
+        data.price !== null && data.price !== undefined && data.price.length > 0
+          ? parseFloat(data.price)
+          : undefined,
+      currency: data.currency ?? "USD",
       sizes: parseCommaSeparated(data.sizes),
       colors: parseCommaSeparated(data.colors),
       materials: parseCommaSeparated(data.materials),
-      careInstructions: data.careInstructions || undefined,
-      customizationOptions: data.customizationOptions || undefined,
-      processingTime: data.processingTime || undefined,
+      careInstructions:
+        data.careInstructions === null ||
+        data.careInstructions === undefined ||
+        data.careInstructions.length === 0
+          ? undefined
+          : data.careInstructions,
+      customizationOptions:
+        data.customizationOptions === null ||
+        data.customizationOptions === undefined ||
+        data.customizationOptions.length === 0
+          ? undefined
+          : data.customizationOptions,
+      processingTime:
+        data.processingTime === null ||
+        data.processingTime === undefined ||
+        data.processingTime.length === 0
+          ? undefined
+          : data.processingTime,
       tags: parseCommaSeparated(data.tags),
-      sku: data.sku || undefined,
+      sku:
+        data.sku === null || data.sku === undefined || data.sku.length === 0
+          ? undefined
+          : data.sku,
     })
   }
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+    <form
+      onSubmit={(e) => {
+        void handleSubmit(handleFormSubmit)(e)
+      }}
+      className="space-y-4"
+    >
       <div className="grid md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="name">Product Name *</Label>

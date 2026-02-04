@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
@@ -12,7 +12,6 @@ import {
   LogOut,
 } from "lucide-react"
 import { signOut } from "@/lib/firebase/auth"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 
@@ -44,11 +43,11 @@ const navItems = [
   },
 ]
 
-export function Sidebar() {
+export function Sidebar(): React.JSX.Element {
   const pathname = usePathname()
   const router = useRouter()
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (): Promise<void> => {
     await signOut()
     router.push("/login")
   }
@@ -94,7 +93,9 @@ export function Sidebar() {
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-gray-600"
-          onClick={handleSignOut}
+          onClick={(): void => {
+            void handleSignOut()
+          }}
         >
           <LogOut className="h-5 w-5" />
           Sign Out

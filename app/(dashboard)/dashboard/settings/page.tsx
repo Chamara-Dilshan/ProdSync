@@ -9,9 +9,11 @@ import { ApiKeyManager } from "@/components/settings/ApiKeyManager"
 import { ModelSelector } from "@/components/settings/ModelSelector"
 import { getUserSettings, updateUserSettings } from "@/lib/firebase/firestore"
 import { UserSettings, DEFAULT_SETTINGS, AIProvider, ToneType } from "@/types"
-import { Loader2, Save, CheckCircle2 } from "lucide-react"
+import { Loader2, CheckCircle2 } from "lucide-react"
+import { getErrorMessage } from "@/types/errors"
+import type { ValidateKeyResponse } from "@/types/api"
 
-export default function SettingsPage() {
+export default function SettingsPage(): JSX.Element {
   const { user } = useAuth()
   const { toast } = useToast()
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
@@ -20,20 +22,22 @@ export default function SettingsPage() {
   const [hasChanges, setHasChanges] = useState(false)
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      if (!user) return
+    const fetchSettings = async (): Promise<void> => {
+      if (user === null) {
+        return
+      }
       try {
         const data = await getUserSettings(user.uid)
-        if (data) {
+        if (data !== null) {
           setSettings(data)
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to load settings:", error)
         toast({
           variant: "destructive",
           title: "Error loading settings",
           description:
-            error.message ||
+            getErrorMessage(error) ??
             "Failed to load settings. Please check your Firebase configuration.",
         })
       } finally {
@@ -41,17 +45,19 @@ export default function SettingsPage() {
       }
     }
 
-    fetchSettings()
+    void fetchSettings()
   }, [user, toast])
 
-  const handleSave = async () => {
-    if (!user) return
+  const handleSave = async (): Promise<void> => {
+    if (user === null) {
+      return
+    }
 
     setSaving(true)
     try {
       // Validate API key before saving if it has been changed
       const apiKey = settings.apiKeys[settings.selectedProvider]
-      if (apiKey && apiKey.trim().length > 0) {
+      if (apiKey !== null && apiKey !== undefined && apiKey.trim().length > 0) {
         // Call validation endpoint
         const validationResponse = await fetch("/api/ai/validate-key", {
           method: "POST",
@@ -62,7 +68,8 @@ export default function SettingsPage() {
           }),
         })
 
-        const validationResult = await validationResponse.json()
+        const validationResult =
+          (await validationResponse.json()) as ValidateKeyResponse
 
         // If validation failed, show error and don't save
         if (!validationResult.valid) {
@@ -70,7 +77,7 @@ export default function SettingsPage() {
             variant: "destructive",
             title: "Invalid API Key",
             description:
-              validationResult.errorMessage ||
+              validationResult.errorMessage ??
               "The API key could not be validated. Please check and try again.",
           })
           setSaving(false)
@@ -78,11 +85,11 @@ export default function SettingsPage() {
         }
 
         // If validation succeeded with warnings (e.g., free tier), show warning but allow save
-        if (validationResult.warning) {
+        if (validationResult.warning === true) {
           toast({
             title: "API Key Validated (with warnings)",
             description:
-              validationResult.message ||
+              validationResult.message ??
               `Your ${settings.selectedProvider} API key is valid but may have limitations.`,
           })
         } else {
@@ -90,7 +97,7 @@ export default function SettingsPage() {
           toast({
             title: "API Key Validated",
             description:
-              validationResult.message ||
+              validationResult.message ??
               `Your ${settings.selectedProvider} API key is valid and ready to use.`,
           })
         }
@@ -104,20 +111,21 @@ export default function SettingsPage() {
         title: "Settings saved",
         description: "Your settings have been updated successfully.",
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save settings:", error)
       toast({
         variant: "destructive",
         title: "Error saving settings",
         description:
-          error.message || "Failed to save settings. Please try again.",
+          getErrorMessage(error) ??
+          "Failed to save settings. Please try again.",
       })
     } finally {
       setSaving(false)
     }
   }
 
-  const updateSettings = (updates: Partial<UserSettings>) => {
+  const updateSettings = (updates: Partial<UserSettings>): void => {
     setSettings((prev) => ({ ...prev, ...updates }))
     setHasChanges(true)
   }
@@ -168,7 +176,9 @@ export default function SettingsPage() {
           {/* Save Button */}
           <div className="flex justify-end">
             <Button
-              onClick={handleSave}
+              onClick={() => {
+                void handleSave()
+              }}
               disabled={saving || !hasChanges}
               size="lg"
             >
