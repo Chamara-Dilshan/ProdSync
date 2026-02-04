@@ -452,7 +452,6 @@ All documentation for Phase 1.4:
 ## 🔗 Related Documentation
 
 - [extension/README.md](README.md) - Extension overview and setup
-- [extension/PHASE_1_3_SUMMARY.md](PHASE_1_3_SUMMARY.md) - Phase 1.3 completion summary
 - [CLAUDE.md](../CLAUDE.md) - Main ProdSync project documentation
 
 ---
