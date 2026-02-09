@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx"
-import { ExcelProductRow, Product } from "@/types"
+import { Product } from "@/types"
 
 export interface ParseResult {
   success: boolean
@@ -20,47 +20,108 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
         const sheetName = workbook.SheetNames[0]
         const worksheet = workbook.Sheets[sheetName]
 
-        // Convert to JSON
-        const jsonData = XLSX.utils.sheet_to_json<ExcelProductRow>(worksheet)
+        // Convert to JSON with header normalization
+        const rawData = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+          worksheet,
+          {
+            raw: false, // Convert all cells to strings first
+            defval: "", // Default value for empty cells
+          }
+        )
 
         const products: Omit<Product, "id" | "createdAt" | "updatedAt">[] = []
         const errors: string[] = []
 
-        jsonData.forEach((row, index) => {
+        // Normalize column headers (case-insensitive mapping)
+        const normalizeKey = (key: string): string =>
+          key.toLowerCase().trim().replace(/\s+/g, "")
+
+        rawData.forEach((rawRow, index) => {
           const rowNum = index + 2 // Excel rows start at 1, plus header row
 
-          // Validate required fields
-          if (
-            row.name === null ||
-            row.name === undefined ||
-            row.name.toString().trim() === ""
-          ) {
-            errors.push(`Row ${rowNum}: Product name is required`)
+          // Create a normalized row object
+          const row: Record<string, string | undefined> = {}
+          Object.keys(rawRow).forEach((key) => {
+            const normalizedKey = normalizeKey(key)
+            const value = rawRow[key]
+            // Convert value to string, handling various types
+            if (value === null || value === undefined || value === "") {
+              row[normalizedKey] = undefined
+            } else if (typeof value === "string") {
+              row[normalizedKey] = value.trim()
+            } else if (
+              typeof value === "number" ||
+              typeof value === "boolean"
+            ) {
+              row[normalizedKey] = String(value).trim()
+            } else {
+              // For objects/arrays, try JSON stringification
+              row[normalizedKey] = JSON.stringify(value).trim()
+            }
+          })
+
+          // Skip completely empty rows
+          const hasAnyData = Object.values(row).some(
+            (val) => val !== undefined && val !== ""
+          )
+          if (!hasAnyData) {
             return
+          }
+
+          // Validate required fields (check multiple possible header names)
+          const name =
+            row["name"] ??
+            row["productname"] ??
+            row["product"] ??
+            row["title"] ??
+            undefined
+
+          if (name === undefined || name === "") {
+            errors.push(
+              `Row ${rowNum}: Product name is required. Found columns: ${Object.keys(rawRow).join(", ")}`
+            )
+            return
+          }
+
+          // Helper to get value from multiple possible column names
+          const getField = (...keys: string[]): string | undefined => {
+            for (const key of keys) {
+              const value = row[normalizeKey(key)]
+              if (value !== undefined && value !== "") {
+                return value
+              }
+            }
+            return undefined
           }
 
           // Parse and validate the product
           const product: Omit<Product, "id" | "createdAt" | "updatedAt"> = {
-            name: row.name.toString().trim(),
-            description: row.description?.toString().trim() ?? undefined,
-            price:
-              typeof row.price === "number"
-                ? row.price
-                : (() => {
-                    const parsed = parseFloat(row.price?.toString() ?? "0")
-                    return parsed !== 0 && !isNaN(parsed) ? parsed : undefined
-                  })(),
-            currency: row.currency?.toString().trim() ?? "USD",
-            sizes: parseCommaSeparated(row.sizes),
-            colors: parseCommaSeparated(row.colors),
-            materials: parseCommaSeparated(row.materials),
-            careInstructions:
-              row.careInstructions?.toString().trim() ?? undefined,
-            customizationOptions:
-              row.customizationOptions?.toString().trim() ?? undefined,
-            processingTime: row.processingTime?.toString().trim() ?? undefined,
-            tags: parseCommaSeparated(row.tags),
-            sku: row.sku?.toString().trim() ?? undefined,
+            name: name,
+            description: getField("description", "desc"),
+            price: (() => {
+              const priceStr = getField("price", "cost", "amount")
+              if (priceStr === undefined) {
+                return undefined
+              }
+              const parsed = parseFloat(priceStr)
+              return !isNaN(parsed) && parsed > 0 ? parsed : undefined
+            })(),
+            currency: getField("currency") ?? "USD",
+            sizes: parseCommaSeparated(
+              getField("sizes", "size", "availablesizes")
+            ),
+            colors: parseCommaSeparated(
+              getField("colors", "color", "availablecolors")
+            ),
+            materials: parseCommaSeparated(getField("materials", "material")),
+            careInstructions: getField("careinstructions", "care"),
+            customizationOptions: getField(
+              "customizationoptions",
+              "customization"
+            ),
+            processingTime: getField("processingtime", "leadtime", "time"),
+            tags: parseCommaSeparated(getField("tags", "keywords")),
+            sku: getField("sku", "productcode", "code"),
           }
 
           products.push(product)
@@ -71,11 +132,13 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
           data: products,
           errors,
         })
-      } catch {
+      } catch (error) {
         resolve({
           success: false,
           data: [],
-          errors: ["Failed to parse Excel file. Please check the file format."],
+          errors: [
+            `Failed to parse Excel file: ${error instanceof Error ? error.message : "Unknown error"}. Please check the file format.`,
+          ],
         })
       }
     }

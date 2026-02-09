@@ -3,14 +3,20 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/context/AuthContext"
+import {
+  NavigationProvider,
+  useNavigation,
+} from "@/lib/context/NavigationContext"
 import { Sidebar } from "@/components/dashboard/Sidebar"
+import { MobileNav } from "@/components/dashboard/MobileNav"
 
-export default function DashboardLayout({
+function DashboardLayoutContent({
   children,
 }: {
   children: React.ReactNode
 }): React.ReactElement | null {
   const { user, loading } = useAuth()
+  const { mobileMenuOpen, setMobileMenuOpen } = useNavigation()
   const router = useRouter()
 
   useEffect(() => {
@@ -34,7 +40,20 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
+      <MobileNav open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
       <main className="flex-1">{children}</main>
     </div>
+  )
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}): React.ReactElement {
+  return (
+    <NavigationProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </NavigationProvider>
   )
 }

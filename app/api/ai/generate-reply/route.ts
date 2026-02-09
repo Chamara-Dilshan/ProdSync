@@ -29,7 +29,8 @@ export async function POST(
     } = body
     provider = providerFromBody
 
-    // Auto-migrate deprecated models
+    // TEMPORARY: Auto-migrate deprecated models (remove after Feb 2026)
+    // Users can now update models directly in Settings with flexible model input
     let modelToUse = model
     if (model === "gemini-2.0-flash") {
       modelToUse = "gemini-2.5-flash"

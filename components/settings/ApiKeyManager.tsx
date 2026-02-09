@@ -95,6 +95,9 @@ export function ApiKeyManager({ apiKeys, onChange }: ApiKeyManagerProps) {
                   value={apiKeys[key]}
                   onChange={(e) => handleKeyChange(key, e.target.value)}
                   className="pr-10"
+                  autoComplete="off"
+                  data-1p-ignore
+                  data-lpignore="true"
                 />
                 <Button
                   type="button"

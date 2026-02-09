@@ -150,15 +150,18 @@ export default function PoliciesPage(): JSX.Element {
         description="Define your shop's refund, shipping, and other policies"
       />
 
-      <div className="p-8">
-        <div className="flex justify-between items-center mb-6">
+      <div className="px-4 md:px-6 lg:px-8 py-4 md:py-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4 mb-4 md:mb-6">
           <div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               These policies will be used by AI to generate accurate,
               policy-compliant responses.
             </p>
           </div>
-          <Button onClick={handleAddPolicy}>
+          <Button
+            onClick={handleAddPolicy}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Policy
           </Button>

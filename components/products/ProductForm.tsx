@@ -42,6 +42,19 @@ export function ProductForm({
   onCancel,
   isLoading,
 }: ProductFormProps): React.JSX.Element {
+  // Helper to safely convert array or string to comma-separated string
+  const toCommaSeparated = (
+    value: string[] | string | undefined | null
+  ): string => {
+    if (value === undefined || value === null) {
+      return ""
+    }
+    if (Array.isArray(value)) {
+      return value.join(", ")
+    }
+    return value // Already a string
+  }
+
   const {
     register,
     handleSubmit,
@@ -53,13 +66,13 @@ export function ProductForm({
       description: product?.description ?? "",
       price: product?.price?.toString() ?? "",
       currency: product?.currency ?? "USD",
-      sizes: product?.sizes?.join(", ") ?? "",
-      colors: product?.colors?.join(", ") ?? "",
-      materials: product?.materials?.join(", ") ?? "",
+      sizes: toCommaSeparated(product?.sizes),
+      colors: toCommaSeparated(product?.colors),
+      materials: toCommaSeparated(product?.materials),
       careInstructions: product?.careInstructions ?? "",
       customizationOptions: product?.customizationOptions ?? "",
       processingTime: product?.processingTime ?? "",
-      tags: product?.tags?.join(", ") ?? "",
+      tags: toCommaSeparated(product?.tags),
       sku: product?.sku ?? "",
     },
   })

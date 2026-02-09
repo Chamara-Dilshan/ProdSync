@@ -236,10 +236,10 @@ export default function MessagesPage(): JSX.Element {
         description="Generate professional responses to buyer messages"
       />
 
-      <div className="p-8">
+      <div className="px-4 md:px-6 lg:px-8 py-4 md:py-6">
         {/* Setup Warning */}
         {!hasApiKey && (
-          <Card className="mb-6 border-yellow-200 bg-yellow-50">
+          <Card className="mb-4 md:mb-6 border-yellow-200 bg-yellow-50">
             <CardContent className="p-4 flex items-center gap-4">
               <AlertCircle className="h-5 w-5 text-yellow-600" />
               <div className="flex-1">
@@ -255,9 +255,9 @@ export default function MessagesPage(): JSX.Element {
           </Card>
         )}
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
           {/* Input Section */}
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Buyer Message</CardTitle>

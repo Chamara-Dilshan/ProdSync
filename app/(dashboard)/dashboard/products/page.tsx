@@ -190,15 +190,22 @@ export default function ProductsPage(): JSX.Element {
         description="Manage your product catalog for AI-generated responses"
       />
 
-      <div className="p-8">
+      <div className="px-4 md:px-6 lg:px-8 py-4 md:py-6">
         <Tabs defaultValue="list">
-          <div className="flex justify-between items-center mb-6">
-            <TabsList>
-              <TabsTrigger value="list">Product List</TabsTrigger>
-              <TabsTrigger value="import">Import from Excel</TabsTrigger>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4 mb-4 md:mb-6">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="list" className="flex-1 sm:flex-initial">
+                Product List
+              </TabsTrigger>
+              <TabsTrigger value="import" className="flex-1 sm:flex-initial">
+                Import from Excel
+              </TabsTrigger>
             </TabsList>
 
-            <Button onClick={handleAddProduct}>
+            <Button
+              onClick={handleAddProduct}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Product
             </Button>
@@ -234,7 +241,7 @@ export default function ProductsPage(): JSX.Element {
 
       {/* Add/Edit Product Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingProduct !== null ? "Edit Product" : "Add New Product"}

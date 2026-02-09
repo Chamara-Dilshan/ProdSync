@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Edit, Trash2, Search, Package } from "lucide-react"
+import { ProductCard } from "./ProductCard"
 
 interface ProductListProps {
   products: Product[]
@@ -57,8 +58,8 @@ export function ProductList({
         />
       </div>
 
-      {/* Products Table */}
-      <div className="border rounded-lg overflow-hidden">
+      {/* Desktop Table - hidden on mobile */}
+      <div className="hidden md:block border rounded-lg overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
@@ -131,6 +132,8 @@ export function ProductList({
                       onClick={() => {
                         onEdit(product)
                       }}
+                      className="h-10 w-10"
+                      aria-label="Edit product"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -141,6 +144,8 @@ export function ProductList({
                         onDelete(product.id)
                       }}
                       disabled={isDeleting === product.id}
+                      className="h-10 w-10"
+                      aria-label="Delete product"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -152,6 +157,20 @@ export function ProductList({
         </table>
       </div>
 
+      {/* Mobile Card Layout - visible on mobile only */}
+      <div className="md:hidden space-y-3">
+        {filteredProducts.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            isDeleting={isDeleting === product.id}
+          />
+        ))}
+      </div>
+
+      {/* No results message */}
       {filteredProducts.length === 0 && products.length > 0 && (
         <p className="text-center text-gray-500 py-8">
           No products match your search

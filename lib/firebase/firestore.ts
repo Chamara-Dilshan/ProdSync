@@ -34,6 +34,51 @@ function convertTimestamps<T = DocumentData>(data: T): T {
   return data
 }
 
+// Helper function to normalize Product data from Firestore
+// Ensures array fields are always arrays, not strings
+function normalizeProduct(data: DocumentData): Product {
+  const normalizeArrayField = (value: unknown): string[] | undefined => {
+    if (value === undefined || value === null) {
+      return undefined
+    }
+    if (Array.isArray(value)) {
+      // Ensure all elements are strings
+      return value.filter((item): item is string => typeof item === "string")
+    }
+    if (typeof value === "string") {
+      // Convert comma-separated string to array
+      const items = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+      return items.length > 0 ? items : undefined
+    }
+    return undefined
+  }
+
+  return {
+    ...data,
+    sizes: normalizeArrayField(data.sizes),
+    colors: normalizeArrayField(data.colors),
+    materials: normalizeArrayField(data.materials),
+    tags: normalizeArrayField(data.tags),
+  } as Product
+}
+
+// Helper function to remove undefined fields from an object
+// Firestore doesn't accept undefined values - they must be omitted
+function removeUndefinedFields<T extends Record<string, unknown>>(
+  obj: T
+): Partial<T> {
+  const cleaned: Partial<T> = {}
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      cleaned[key] = obj[key]
+    }
+  }
+  return cleaned
+}
+
 // Helper function to format Firebase errors for users
 function formatFirebaseError(error: unknown, operation: string): Error {
   const errorCode = (error as { code?: string })?.code ?? "unknown"
@@ -83,10 +128,13 @@ export async function getProducts(userId: string): Promise<Product[]> {
     const q = query(productsRef, orderBy("createdAt", "desc"))
     const snapshot = await getDocs(q)
 
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...convertTimestamps(doc.data()),
-    })) as Product[]
+    return snapshot.docs.map((doc) => {
+      const data = convertTimestamps(doc.data())
+      return {
+        id: doc.id,
+        ...normalizeProduct(data),
+      }
+    })
   } catch (error) {
     throw formatFirebaseError(error, "Load products")
   }
@@ -103,7 +151,11 @@ export async function getProduct(
     return null
   }
 
-  return { id: productSnap.id, ...productSnap.data() } as Product
+  const data = convertTimestamps(productSnap.data())
+  return {
+    id: productSnap.id,
+    ...normalizeProduct(data),
+  }
 }
 
 export async function createProduct(
@@ -114,8 +166,11 @@ export async function createProduct(
     const productsRef = collection(db, "users", userId, "products")
     const newProductRef = doc(productsRef)
 
+    // Remove undefined fields before saving to Firestore
+    const cleanedProduct = removeUndefinedFields(product)
+
     await setDoc(newProductRef, {
-      ...product,
+      ...cleanedProduct,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
@@ -133,8 +188,12 @@ export async function updateProduct(
 ): Promise<void> {
   try {
     const productRef = doc(db, "users", userId, "products", productId)
+
+    // Remove undefined fields before saving to Firestore
+    const cleanedUpdates = removeUndefinedFields(updates)
+
     await updateDoc(productRef, {
-      ...updates,
+      ...cleanedUpdates,
       updatedAt: serverTimestamp(),
     })
   } catch (error) {
@@ -206,8 +265,11 @@ export async function createPolicy(
     const policiesRef = collection(db, "users", userId, "policies")
     const newPolicyRef = doc(policiesRef)
 
+    // Remove undefined fields before saving to Firestore
+    const cleanedPolicy = removeUndefinedFields(policy)
+
     await setDoc(newPolicyRef, {
-      ...policy,
+      ...cleanedPolicy,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
@@ -225,8 +287,12 @@ export async function updatePolicy(
 ): Promise<void> {
   try {
     const policyRef = doc(db, "users", userId, "policies", policyId)
+
+    // Remove undefined fields before saving to Firestore
+    const cleanedUpdates = removeUndefinedFields(updates)
+
     await updateDoc(policyRef, {
-      ...updates,
+      ...cleanedUpdates,
       updatedAt: serverTimestamp(),
     })
   } catch (error) {
@@ -290,10 +356,12 @@ export async function searchProducts(
   const products = await getProducts(userId)
   const query = searchQuery.toLowerCase()
 
-  return products.filter(
-    (product) =>
-      product.name.toLowerCase().includes(query) ||
-      product.description?.toLowerCase().includes(query) ||
-      product.tags?.some((tag) => tag.toLowerCase().includes(query))
-  )
+  return products.filter((product) => {
+    const nameMatch = product.name.toLowerCase().includes(query)
+    const descMatch = product.description?.toLowerCase().includes(query)
+    const tagMatch = product.tags?.some((tag) =>
+      tag.toLowerCase().includes(query)
+    )
+    return nameMatch || descMatch || tagMatch
+  })
 }

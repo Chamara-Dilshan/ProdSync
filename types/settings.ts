@@ -2,80 +2,36 @@ export type AIProvider = "openai" | "gemini" | "anthropic"
 
 export type ToneType = "professional" | "friendly" | "formal" | "casual"
 
-export interface AIModel {
-  id: string
-  name: string
-  provider: AIProvider
-  description?: string
+// Model suggestions (not constraints) - users can enter any model name
+export const MODEL_SUGGESTIONS: Record<AIProvider, string[]> = {
+  openai: [
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4-turbo",
+    "gpt-4-turbo-preview",
+    "o1",
+    "o1-mini",
+  ],
+  gemini: [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
+  ],
+  anthropic: [
+    "claude-3-5-sonnet-20241022",
+    "claude-3-opus-20240229",
+    "claude-3-haiku-20240307",
+    "claude-3-5-haiku-20241022",
+  ],
 }
 
-export const AI_MODELS: AIModel[] = [
-  // OpenAI Models
-  {
-    id: "gpt-4o",
-    name: "GPT-4o",
-    provider: "openai",
-    description: "Most capable OpenAI model",
-  },
-  {
-    id: "gpt-4o-mini",
-    name: "GPT-4o Mini",
-    provider: "openai",
-    description: "Fast and affordable",
-  },
-  {
-    id: "gpt-4-turbo",
-    name: "GPT-4 Turbo",
-    provider: "openai",
-    description: "Previous generation flagship",
-  },
-
-  // Google Gemini Models
-  {
-    id: "gemini-1.5-pro",
-    name: "Gemini 1.5 Pro",
-    provider: "gemini",
-    description: "Most capable Gemini model",
-  },
-  {
-    id: "gemini-1.5-flash",
-    name: "Gemini 1.5 Flash",
-    provider: "gemini",
-    description: "Fast and efficient",
-  },
-  {
-    id: "gemini-2.5-flash",
-    name: "Gemini 2.5 Flash",
-    provider: "gemini",
-    description: "Latest and fastest Gemini model",
-  },
-  {
-    id: "gemini-2.5-flash-lite",
-    name: "Gemini 2.5 Flash Lite",
-    provider: "gemini",
-    description: "Lightweight and cost-effective",
-  },
-
-  // Anthropic Models
-  {
-    id: "claude-3-5-sonnet-20241022",
-    name: "Claude 3.5 Sonnet",
-    provider: "anthropic",
-    description: "Best for most tasks",
-  },
-  {
-    id: "claude-3-opus-20240229",
-    name: "Claude 3 Opus",
-    provider: "anthropic",
-    description: "Most powerful Claude",
-  },
-  {
-    id: "claude-3-haiku-20240307",
-    name: "Claude 3 Haiku",
-    provider: "anthropic",
-    description: "Fast and compact",
-  },
-]
+// Default models per provider
+export const DEFAULT_MODELS: Record<AIProvider, string> = {
+  openai: "gpt-4o-mini",
+  gemini: "gemini-2.5-flash",
+  anthropic: "claude-3-5-sonnet-20241022",
+}
 
 export interface ApiKeys {
   openai: string

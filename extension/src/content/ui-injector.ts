@@ -7,14 +7,8 @@ import {
   waitForElement,
   findElementWithFallback,
   extractTextFromElement,
-  findMostRecentVisibleMessage,
 } from "./dom-helpers"
-import {
-  ETSY_SELECTORS,
-  TEXTAREA_SELECTORS,
-  SUBMIT_BUTTON_SELECTORS,
-  MESSAGE_TEXT_SELECTORS,
-} from "./etsy-selectors"
+import { TEXTAREA_SELECTORS, SUBMIT_BUTTON_SELECTORS } from "./etsy-selectors"
 
 const BUTTON_ID = "prodsync-generate-btn"
 
@@ -65,92 +59,50 @@ export function createGenerateButton(): HTMLButtonElement {
  */
 export function extractBuyerMessage(): string | null {
   try {
-    // SIMPLIFIED: Just get all message texts (wt-text-body-01)
-    const messageElements = document.querySelectorAll(".wt-text-body-01")
+    // First, find the conversation container to scope our search
+    const conversationContainer = document.querySelector(
+      ".scrolling-message-list"
+    )
 
-    console.log(`[ProdSync] Found ${messageElements.length} message elements`)
+    if (!conversationContainer) {
+      console.warn("[ProdSync] Conversation container not found")
+      return null
+    }
 
-    // Get the first visible message (usually the buyer's)
-    for (const message of messageElements) {
+    // Find all message text elements ONLY within the conversation container
+    const messageElements =
+      conversationContainer.querySelectorAll(".wt-text-body-01")
+
+    console.log(
+      `[ProdSync] Found ${messageElements.length} message elements in conversation`
+    )
+
+    if (messageElements.length === 0) {
+      console.warn("[ProdSync] No messages found in conversation")
+      return null
+    }
+
+    // Iterate BACKWARDS to get the most recent message (last in list)
+    for (let i = messageElements.length - 1; i >= 0; i--) {
+      const message = messageElements[i]
+
+      // Extract text from message element
       const text = extractTextFromElement(message)
+
+      // Return first substantial message found (which is the last/most recent one)
       if (text && text.length > 10) {
-        // Must be substantial
         console.log(
-          "[ProdSync] Extracted message:",
+          `[ProdSync] Extracted most recent message (index ${i}):`,
           text.substring(0, 50) + "..."
         )
         return text
       }
     }
 
-    // OLD CODE - keeping as fallback
-    const buyerMessages = document.querySelectorAll(ETSY_SELECTORS.buyerMessage)
-
-    if (buyerMessages.length > 0) {
-      const lastMessage = findMostRecentVisibleMessage(buyerMessages)
-      if (lastMessage) {
-        const textElement = findElementWithFallback([
-          ...MESSAGE_TEXT_SELECTORS,
-        ]) as Element | null
-        if (textElement) {
-          const text = extractTextFromElement(textElement)
-          if (text) {
-            console.log("[ProdSync] Strategy 1: Found buyer message")
-            return text
-          }
-        }
-
-        // Fallback: extract from message element directly
-        const text = extractTextFromElement(lastMessage)
-        if (text) {
-          console.log("[ProdSync] Strategy 1 (fallback): Found buyer message")
-          return text
-        }
-      }
-    }
-
-    // Strategy 2: Find all messages and filter by role/attributes
-    const allMessages = document.querySelectorAll(ETSY_SELECTORS.messageItem)
-
-    if (allMessages.length > 0) {
-      // Reverse iterate to get most recent
-      for (let i = allMessages.length - 1; i >= 0; i--) {
-        const message = allMessages[i]
-
-        // Check if it's from buyer (not seller)
-        const isSeller =
-          message.getAttribute("data-is-seller") === "true" ||
-          message.getAttribute("data-from") === "seller" ||
-          message.classList.contains("seller-message")
-
-        if (!isSeller) {
-          const text = extractTextFromElement(message)
-          if (text) {
-            console.log("[ProdSync] Strategy 2: Found buyer message")
-            return text
-          }
-        }
-      }
-    }
-
-    // Strategy 3: Fallback - get all text from conversation
-    const conversationContainer = document.querySelector(
-      ETSY_SELECTORS.conversationContainer
-    )
-
-    if (conversationContainer) {
-      const text = extractTextFromElement(conversationContainer)
-      if (text) {
-        console.log("[ProdSync] Strategy 3 (fallback): Using conversation text")
-        // Return first 500 characters to avoid overwhelming the popup
-        return text.substring(0, 500)
-      }
-    }
-
-    console.warn("[ProdSync] Could not extract buyer message")
+    console.warn("[ProdSync] No substantial messages found in conversation")
     return null
   } catch (error) {
-    console.error("[ProdSync] Error extracting buyer message:", error)
+    console.error("[ProdSync] Error extracting message:", error)
     return null
   }
 }

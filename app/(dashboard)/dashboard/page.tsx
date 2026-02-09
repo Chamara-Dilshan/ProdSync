@@ -79,10 +79,10 @@ export default function DashboardPage(): JSX.Element {
         description="Overview of your ProdSync account"
       />
 
-      <div className="p-8">
+      <div className="px-4 md:px-6 lg:px-8 py-4 md:py-6">
         {/* Error Alert */}
         {error !== null && error !== "" && (
-          <Card className="mb-6 border-red-200 bg-red-50">
+          <Card className="mb-4 md:mb-6 border-red-200 bg-red-50">
             <CardContent className="p-4 flex items-start gap-4">
               <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
               <div className="flex-1">
@@ -94,7 +94,7 @@ export default function DashboardPage(): JSX.Element {
         )}
 
         {/* Stats Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
           <StatsCard
             title="Products"
             value={loading ? "-" : stats.productCount.toString()}
@@ -122,7 +122,7 @@ export default function DashboardPage(): JSX.Element {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           <QuickActionCard
             title="Add Products"
             description="Import your Etsy products via Excel upload"

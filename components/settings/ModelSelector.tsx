@@ -14,17 +14,17 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  SelectGroup,
-  SelectLabel,
 } from "@/components/ui/select"
 import {
   AIProvider,
-  AI_MODELS,
+  MODEL_SUGGESTIONS,
+  DEFAULT_MODELS,
   ToneType,
   TONE_LABELS,
   PROVIDER_LABELS,
   ApiKeys,
 } from "@/types"
+import { ModelInput } from "@/components/ui/model-input"
 
 interface ModelSelectorProps {
   selectedProvider: AIProvider
@@ -46,9 +46,7 @@ export function ModelSelector({
   onToneChange,
 }: ModelSelectorProps) {
   const availableProviders = Object.keys(PROVIDER_LABELS) as AIProvider[]
-  const modelsForProvider = AI_MODELS.filter(
-    (m) => m.provider === selectedProvider
-  )
+  const modelSuggestions = MODEL_SUGGESTIONS[selectedProvider]
 
   const isProviderConfigured = (provider: AIProvider) =>
     apiKeys[provider] && apiKeys[provider].trim().length > 0
@@ -56,11 +54,8 @@ export function ModelSelector({
   const handleProviderChange = (value: string) => {
     const provider = value as AIProvider
     onProviderChange(provider)
-    // Auto-select first model for the new provider
-    const firstModel = AI_MODELS.find((m) => m.provider === provider)
-    if (firstModel) {
-      onModelChange(firstModel.id)
-    }
+    // Auto-select default model for the new provider
+    onModelChange(DEFAULT_MODELS[provider])
   }
 
   return (
@@ -103,30 +98,17 @@ export function ModelSelector({
         {/* Model Selection */}
         <div className="space-y-2">
           <Label>Model</Label>
-          <Select value={selectedModel} onValueChange={onModelChange}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>
-                  {PROVIDER_LABELS[selectedProvider]} Models
-                </SelectLabel>
-                {modelsForProvider.map((model) => (
-                  <SelectItem key={model.id} value={model.id}>
-                    <div className="flex flex-col">
-                      <span>{model.name}</span>
-                      {model.description && (
-                        <span className="text-xs text-muted-foreground">
-                          {model.description}
-                        </span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          <ModelInput
+            value={selectedModel}
+            suggestions={modelSuggestions}
+            placeholder={`e.g., ${DEFAULT_MODELS[selectedProvider]}`}
+            onChange={onModelChange}
+            disabled={!isProviderConfigured(selectedProvider)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Select a suggested model or type any model name (e.g., gpt-5,
+            claude-opus-4.5)
+          </p>
         </div>
 
         {/* Tone Selection */}
