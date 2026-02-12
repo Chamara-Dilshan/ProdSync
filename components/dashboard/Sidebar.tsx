@@ -8,6 +8,7 @@ import {
   Package,
   FileText,
   MessageSquare,
+  Chrome,
   Settings,
   LogOut,
 } from "lucide-react"
@@ -35,6 +36,11 @@ export const navItems = [
     title: "Messages",
     href: "/dashboard/messages",
     icon: MessageSquare,
+  },
+  {
+    title: "Extension",
+    href: "/dashboard/extension",
+    icon: Chrome,
   },
   {
     title: "Settings",
