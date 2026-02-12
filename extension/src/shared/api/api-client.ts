@@ -3,8 +3,11 @@
  * Handles all HTTP requests to the main application API
  */
 
+import { createLogger } from "../utils/logger"
 import { AuthStorage } from "../storage/auth-storage"
 import { Product, Policy } from "../storage/cache-storage"
+
+const logger = createLogger("API")
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
 
@@ -55,7 +58,7 @@ export class APIClient {
 
     const url = `${BACKEND_URL}${endpoint}`
 
-    console.log(`[API Client] ${options.method || "GET"} ${url}`)
+    logger.info(`${options.method || "GET"} ${url}`)
 
     try {
       const response = await fetch(url, {
@@ -77,7 +80,12 @@ export class APIClient {
           suggestion: errorData.suggestion,
         }
 
-        console.error("[API Client] Error:", apiError)
+        logger.error("API request failed", undefined, {
+          status: response.status,
+          statusText: response.statusText,
+          message: apiError.message,
+          suggestion: apiError.suggestion,
+        })
         throw apiError
       }
 
@@ -96,7 +104,9 @@ export class APIClient {
           error.message || "Network error. Please check your connection.",
         code: 0,
       }
-      console.error("[API Client] Network error:", apiError)
+      logger.error("Network error", error, {
+        message: apiError.message,
+      })
       throw apiError
     }
   }

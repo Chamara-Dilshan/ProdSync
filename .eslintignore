@@ -1,0 +1,14 @@
+# Service worker (plain JavaScript)
+public/sw.js
+
+# Build output
+.next/
+out/
+dist/
+build/
+
+# Dependencies
+node_modules/
+
+# Extension build
+extension/dist/

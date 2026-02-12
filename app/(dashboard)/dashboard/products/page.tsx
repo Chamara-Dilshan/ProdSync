@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@/lib/context/AuthContext"
+import { useState } from "react"
 import { Header } from "@/components/dashboard/Header"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,52 +14,29 @@ import { useToast } from "@/components/ui/use-toast"
 import { ProductList } from "@/components/products/ProductList"
 import { ProductForm } from "@/components/products/ProductForm"
 import { ExcelUploader } from "@/components/products/ExcelUploader"
+import { ProductListSkeleton } from "@/components/skeletons/ProductListSkeleton"
 import {
-  getProducts,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-  bulkCreateProducts,
-} from "@/lib/firebase/firestore"
+  useProducts,
+  useCreateProduct,
+  useUpdateProduct,
+  useDeleteProduct,
+  useBulkCreateProducts,
+} from "@/lib/hooks/useProducts"
 import { Product } from "@/types"
 import { getErrorMessage } from "@/types/errors"
-import { Plus, Loader2 } from "lucide-react"
+import { Plus } from "lucide-react"
 
 export default function ProductsPage(): JSX.Element {
-  const { user } = useAuth()
   const { toast } = useToast()
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isImporting, setIsImporting] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchProducts = async (): Promise<void> => {
-      if (user === null) {
-        return
-      }
-      try {
-        const data = await getProducts(user.uid)
-        setProducts(data)
-      } catch (error: unknown) {
-        console.error("Failed to load products:", error)
-        toast({
-          variant: "destructive",
-          title: "Error loading products",
-          description:
-            getErrorMessage(error) ??
-            "Failed to load products. Please check your Firebase configuration.",
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    void fetchProducts()
-  }, [user, toast])
+  // React Query hooks
+  const { data: products = [], isLoading } = useProducts()
+  const createMutation = useCreateProduct()
+  const updateMutation = useUpdateProduct()
+  const deleteMutation = useDeleteProduct()
+  const bulkCreateMutation = useBulkCreateProducts()
 
   const handleAddProduct = (): void => {
     setEditingProduct(null)
@@ -75,32 +51,20 @@ export default function ProductsPage(): JSX.Element {
   const handleSubmitProduct = async (
     data: Omit<Product, "id" | "createdAt" | "updatedAt">
   ): Promise<void> => {
-    if (user === null) {
-      return
-    }
-
-    setIsSubmitting(true)
     try {
       if (editingProduct !== null) {
-        await updateProduct(user.uid, editingProduct.id, data)
-        setProducts((prev) =>
-          prev.map((p) => (p.id === editingProduct.id ? { ...p, ...data } : p))
-        )
+        // Update existing product
+        await updateMutation.mutateAsync({
+          productId: editingProduct.id,
+          data,
+        })
         toast({
           title: "Product updated",
           description: "Your product has been updated successfully.",
         })
       } else {
-        const id = await createProduct(user.uid, data)
-        setProducts((prev) => [
-          {
-            id,
-            ...data,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          } as Product,
-          ...prev,
-        ])
+        // Create new product
+        await createMutation.mutateAsync(data)
         toast({
           title: "Product added",
           description: "Your product has been added successfully.",
@@ -115,20 +79,12 @@ export default function ProductsPage(): JSX.Element {
         description:
           getErrorMessage(error) ?? "Failed to save product. Please try again.",
       })
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
   const handleDeleteProduct = async (productId: string): Promise<void> => {
-    if (user === null) {
-      return
-    }
-
-    setDeletingId(productId)
     try {
-      await deleteProduct(user.uid, productId)
-      setProducts((prev) => prev.filter((p) => p.id !== productId))
+      await deleteMutation.mutateAsync(productId)
       toast({
         title: "Product deleted",
         description: "The product has been removed.",
@@ -142,29 +98,14 @@ export default function ProductsPage(): JSX.Element {
           getErrorMessage(error) ??
           "Failed to delete product. Please try again.",
       })
-    } finally {
-      setDeletingId(null)
     }
   }
 
   const handleImportProducts = async (
     importedProducts: Omit<Product, "id" | "createdAt" | "updatedAt">[]
   ): Promise<void> => {
-    if (user === null) {
-      return
-    }
-
-    setIsImporting(true)
     try {
-      const ids = await bulkCreateProducts(user.uid, importedProducts)
-      const newProducts = importedProducts.map((p, i) => ({
-        id: ids[i],
-        ...p,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })) as Product[]
-
-      setProducts((prev) => [...newProducts, ...prev])
+      await bulkCreateMutation.mutateAsync(importedProducts)
       toast({
         title: "Import successful",
         description: `${importedProducts.length} products have been imported.`,
@@ -178,8 +119,6 @@ export default function ProductsPage(): JSX.Element {
           getErrorMessage(error) ??
           "Failed to import products. Please try again.",
       })
-    } finally {
-      setIsImporting(false)
     }
   }
 
@@ -212,10 +151,8 @@ export default function ProductsPage(): JSX.Element {
           </div>
 
           <TabsContent value="list">
-            {loading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
+            {isLoading ? (
+              <ProductListSkeleton />
             ) : (
               <ProductList
                 products={products}
@@ -223,7 +160,11 @@ export default function ProductsPage(): JSX.Element {
                 onDelete={(productId: string) => {
                   void handleDeleteProduct(productId)
                 }}
-                isDeleting={deletingId ?? undefined}
+                isDeleting={
+                  deleteMutation.isPending
+                    ? deleteMutation.variables
+                    : undefined
+                }
               />
             )}
           </TabsContent>
@@ -233,7 +174,7 @@ export default function ProductsPage(): JSX.Element {
               onProductsParsed={(products) => {
                 void handleImportProducts(products)
               }}
-              isUploading={isImporting}
+              isUploading={bulkCreateMutation.isPending}
             />
           </TabsContent>
         </Tabs>
@@ -255,7 +196,9 @@ export default function ProductsPage(): JSX.Element {
             onCancel={() => {
               setIsDialogOpen(false)
             }}
-            isLoading={isSubmitting}
+            isLoading={
+              createMutation.isPending || updateMutation.isPending
+            }
           />
         </DialogContent>
       </Dialog>

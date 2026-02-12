@@ -3,6 +3,10 @@
  * Reusable helpers for interacting with Etsy page elements
  */
 
+import { createLogger } from "../shared/utils/logger"
+
+const logger = createLogger("DOMHelpers")
+
 /**
  * Wait for an element to appear in the DOM
  * @param selector CSS selector to watch for
@@ -17,13 +21,20 @@ export function waitForElement(
     // Check if element already exists
     const existingElement = document.querySelector(selector)
     if (existingElement) {
+      logger.debug("Element already exists in DOM", { selector })
       resolve(existingElement)
       return
     }
 
+    logger.debug("Waiting for element", { selector, timeout: `${timeout}ms` })
+
     // Set up timeout
     const timeoutId = setTimeout(() => {
       observer.disconnect()
+      logger.warn("Element not found after timeout", {
+        selector,
+        timeout: `${timeout}ms`,
+      })
       reject(new Error(`Timeout waiting for element: ${selector}`))
     }, timeout)
 
@@ -33,6 +44,7 @@ export function waitForElement(
       if (element) {
         clearTimeout(timeoutId)
         observer.disconnect()
+        logger.debug("Element found in DOM", { selector })
         resolve(element)
       }
     })
@@ -54,18 +66,25 @@ export function waitForElement(
 export function findElementWithFallback(
   selectors: readonly string[]
 ): Element | null {
-  for (const selector of selectors) {
+  logger.debug(`Trying ${selectors.length} selectors`, {
+    selectors: selectors.slice(0, 3).join(", ") + "...",
+  })
+
+  for (let i = 0; i < selectors.length; i++) {
+    const selector = selectors[i]
     const element = document.querySelector(selector)
     if (element) {
-      console.log(`[ProdSync] Found element with selector: ${selector}`)
+      logger.info(`Found element with selector (attempt ${i + 1}/${selectors.length})`, {
+        selector,
+      })
       return element
     }
+    logger.debug(`Selector ${i + 1}/${selectors.length} not found`, { selector })
   }
 
-  console.warn(
-    `[ProdSync] No elements found with selectors:`,
-    selectors.join(", ")
-  )
+  logger.warn("No elements found with any selector", {
+    triedCount: selectors.length,
+  })
   return null
 }
 
@@ -120,10 +139,10 @@ export function insertTextIntoTextarea(
     // Trigger focus event to ensure textarea is active
     textarea.focus()
 
-    console.log("[ProdSync] Text inserted successfully")
+    logger.info("Text inserted successfully", { length: text.length })
     return true
   } catch (error) {
-    console.error("[ProdSync] Error inserting text:", error)
+    logger.error("Failed to insert text", error, { length: text.length })
     return false
   }
 }

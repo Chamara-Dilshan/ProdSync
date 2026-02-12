@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@/lib/context/AuthContext"
+import { useState } from "react"
+import { useCSRF } from "@/lib/context/CSRFContext"
 import { Header } from "@/components/dashboard/Header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,40 +17,36 @@ import { useToast } from "@/components/ui/use-toast"
 import { MessageInput } from "@/components/messages/MessageInput"
 import { ReplyPreview } from "@/components/messages/ReplyPreview"
 import { ProductSelector } from "@/components/messages/ProductSelector"
-import {
-  getProducts,
-  getPolicies,
-  getUserSettings,
-} from "@/lib/firebase/firestore"
-import {
-  Product,
-  Policy,
-  UserSettings,
-  ToneType,
-  TONE_LABELS,
-  DEFAULT_SETTINGS,
-} from "@/types"
+import { MessagePageSkeleton } from "@/components/skeletons/MessagePageSkeleton"
+import { useProducts } from "@/lib/hooks/useProducts"
+import { usePolicies } from "@/lib/hooks/usePolicies"
+import { useSettings } from "@/lib/hooks/useSettings"
+import { ToneType, TONE_LABELS } from "@/types"
 import { Loader2, Sparkles, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { getErrorMessage } from "@/types/errors"
 import type { GenerateReplyResponse, ApiErrorResponse } from "@/types/api"
 
 export default function MessagesPage(): JSX.Element {
-  const { user } = useAuth()
+  const { getCSRFHeaders } = useCSRF()
   const { toast } = useToast()
 
-  // Data state
-  const [products, setProducts] = useState<Product[]>([])
-  const [policies, setPolicies] = useState<Policy[]>([])
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
-  const [loading, setLoading] = useState(true)
+  // React Query hooks - fetch all data in parallel
+  const { data: products = [], isLoading: productsLoading } = useProducts()
+  const { data: policies = [], isLoading: policiesLoading } = usePolicies()
+  const { data: settings, isLoading: settingsLoading } = useSettings()
+
+  // Combine loading states
+  const isLoading = productsLoading || policiesLoading || settingsLoading
 
   // Form state
   const [message, setMessage] = useState("")
   const [selectedProductId, setSelectedProductId] = useState<string | null>(
     null
   )
-  const [tone, setTone] = useState<ToneType>("professional")
+  const [tone, setTone] = useState<ToneType>(
+    settings?.defaultTone ?? "professional"
+  )
 
   // Generation state
   const [generatedReply, setGeneratedReply] = useState<string | null>(null)
@@ -58,42 +54,13 @@ export default function MessagesPage(): JSX.Element {
   const [lastProvider, setLastProvider] = useState("")
   const [lastModel, setLastModel] = useState("")
 
-  useEffect(() => {
-    const fetchData = async (): Promise<void> => {
-      if (user === null) {
-        return
-      }
-      try {
-        const [productsData, policiesData, settingsData] = await Promise.all([
-          getProducts(user.uid),
-          getPolicies(user.uid),
-          getUserSettings(user.uid),
-        ])
-
-        setProducts(productsData)
-        setPolicies(policiesData.filter((p) => p.isActive))
-        if (settingsData !== null) {
-          setSettings(settingsData)
-          setTone(settingsData.defaultTone)
-        }
-      } catch (error: unknown) {
-        console.error("Failed to load message page data:", error)
-        toast({
-          variant: "destructive",
-          title: "Error loading data",
-          description:
-            getErrorMessage(error) ??
-            "Failed to load data. Please check your Firebase configuration.",
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    void fetchData()
-  }, [user, toast])
+  // Update tone when settings load
+  if (settings?.defaultTone !== undefined && tone !== settings.defaultTone) {
+    setTone(settings.defaultTone)
+  }
 
   const hasApiKey =
+    settings !== undefined &&
     (settings.apiKeys[settings.selectedProvider]?.trim().length ?? 0) > 0
 
   const handleGenerate = async (): Promise<void> => {
@@ -106,7 +73,7 @@ export default function MessagesPage(): JSX.Element {
       return
     }
 
-    if (!hasApiKey) {
+    if (!hasApiKey || settings === undefined) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -120,6 +87,7 @@ export default function MessagesPage(): JSX.Element {
 
     try {
       // Prepare context
+      const activePolicies = policies.filter((p) => p.isActive)
       const contextProducts =
         selectedProductId !== null
           ? products.filter((p) => p.id === selectedProductId)
@@ -127,7 +95,11 @@ export default function MessagesPage(): JSX.Element {
 
       const response = await fetch("/api/ai/generate-reply", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCSRFHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({
           message,
           products: contextProducts.map((p) => ({
@@ -140,7 +112,7 @@ export default function MessagesPage(): JSX.Element {
             careInstructions: p.careInstructions,
             customizationOptions: p.customizationOptions,
           })),
-          policies: policies.map((p) => ({
+          policies: activePolicies.map((p) => ({
             type: p.type,
             title: p.title,
             content: p.content,
@@ -218,12 +190,12 @@ export default function MessagesPage(): JSX.Element {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div>
         <Header title="Messages" description="Generate AI-powered replies" />
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="px-4 md:px-6 lg:px-8 py-4 md:py-6">
+          <MessagePageSkeleton />
         </div>
       </div>
     )
@@ -320,33 +292,37 @@ export default function MessagesPage(): JSX.Element {
             </Card>
 
             {/* Context Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">AI Context</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Products</p>
-                    <p className="font-medium">{products.length} available</p>
+            {settings !== undefined && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">AI Context</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Products</p>
+                      <p className="font-medium">{products.length} available</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Active Policies</p>
+                      <p className="font-medium">
+                        {policies.filter((p) => p.isActive).length} configured
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Provider</p>
+                      <p className="font-medium capitalize">
+                        {settings.selectedProvider}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Model</p>
+                      <p className="font-medium">{settings.selectedModel}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">Active Policies</p>
-                    <p className="font-medium">{policies.length} configured</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Provider</p>
-                    <p className="font-medium capitalize">
-                      {settings.selectedProvider}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Model</p>
-                    <p className="font-medium">{settings.selectedModel}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Output Section */}

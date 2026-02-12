@@ -1,5 +1,8 @@
 import { Storage } from "./index"
 import { StorageKeys } from "./storage-keys"
+import { createLogger } from "../utils/logger"
+
+const logger = createLogger("AuthStorage")
 
 export interface AuthData {
   token: string
@@ -17,6 +20,11 @@ export class AuthStorage {
    * Store authentication data
    */
   static async setAuthData(data: AuthData): Promise<void> {
+    logger.info("Storing auth token", {
+      userId: data.userId,
+      email: data.email,
+      expiresAt: new Date(data.expiry).toISOString(),
+    })
     await Promise.all([
       Storage.set(StorageKeys.AUTH_TOKEN, data.token),
       Storage.set(StorageKeys.AUTH_TOKEN_EXPIRY, data.expiry),
@@ -34,16 +42,22 @@ export class AuthStorage {
     const expiry = await Storage.get<number>(StorageKeys.AUTH_TOKEN_EXPIRY)
 
     if (!token || !expiry) {
+      logger.debug("No auth token found in storage")
       return null
     }
 
     // Check if token is expired (with 5-minute buffer)
     const now = Date.now()
     if (now >= expiry - 5 * 60 * 1000) {
-      console.log("Auth token expired or expiring soon")
+      logger.warn("Auth token expired or expiring soon", {
+        expiresAt: new Date(expiry).toISOString(),
+      })
       return null
     }
 
+    logger.debug("Retrieved valid auth token", {
+      expiresAt: new Date(expiry).toISOString(),
+    })
     return token
   }
 
@@ -59,9 +73,11 @@ export class AuthStorage {
     ])
 
     if (!token || !expiry || !userId || !email) {
+      logger.debug("Incomplete auth data in storage")
       return null
     }
 
+    logger.debug("Retrieved full auth data", { userId, email })
     return { token, expiry, userId, email }
   }
 
@@ -76,6 +92,7 @@ export class AuthStorage {
    * Clear all authentication data
    */
   static async clearAuth(): Promise<void> {
+    logger.info("Clearing all auth data")
     await Promise.all([
       Storage.remove(StorageKeys.AUTH_TOKEN),
       Storage.remove(StorageKeys.AUTH_TOKEN_EXPIRY),

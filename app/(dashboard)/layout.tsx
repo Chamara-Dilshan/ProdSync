@@ -7,6 +7,9 @@ import {
   NavigationProvider,
   useNavigation,
 } from "@/lib/context/NavigationContext"
+import { EncryptionProvider } from "@/lib/context/EncryptionContext"
+import { CSRFProvider } from "@/lib/context/CSRFContext"
+import { QueryProvider } from "@/lib/context/QueryProvider"
 import { Sidebar } from "@/components/dashboard/Sidebar"
 import { MobileNav } from "@/components/dashboard/MobileNav"
 
@@ -52,8 +55,14 @@ export default function DashboardLayout({
   children: React.ReactNode
 }): React.ReactElement {
   return (
-    <NavigationProvider>
-      <DashboardLayoutContent>{children}</DashboardLayoutContent>
-    </NavigationProvider>
+    <QueryProvider>
+      <EncryptionProvider>
+        <CSRFProvider>
+          <NavigationProvider>
+            <DashboardLayoutContent>{children}</DashboardLayoutContent>
+          </NavigationProvider>
+        </CSRFProvider>
+      </EncryptionProvider>
+    </QueryProvider>
   )
 }

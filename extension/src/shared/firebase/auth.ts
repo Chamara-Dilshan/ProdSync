@@ -9,6 +9,10 @@ import {
 } from "firebase/auth"
 import { auth } from "./config"
 import { AuthStorage } from "../storage/auth-storage"
+import { CacheStorage } from "../storage/cache-storage"
+import { createLogger } from "../utils/logger"
+
+const logger = createLogger("Auth")
 
 /**
  * Sign in with email and password
@@ -60,6 +64,8 @@ export async function signInWithGoogle(): Promise<UserCredential> {
 export async function signOut(): Promise<void> {
   await firebaseSignOut(auth)
   await AuthStorage.clearAuth()
+  await CacheStorage.clearCache()  // Clear all cached data to prevent data contamination
+  logger.info("User signed out, all data cleared")
 }
 
 /**

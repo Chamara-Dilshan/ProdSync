@@ -14,6 +14,9 @@ import {
   scrollToElement,
 } from "./dom-helpers"
 import { TEXTAREA_SELECTORS } from "./etsy-selectors"
+import { createLogger } from "../shared/utils/logger"
+
+const logger = createLogger("Content")
 
 console.log("[ProdSync] Content script loaded on:", window.location.href)
 
@@ -131,7 +134,7 @@ if (isEtsyMessagePage() && isConversationPage()) {
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener(
   (message: MessageToContent, _sender, sendResponse) => {
-    console.log("Content script received message:", message.type)
+    logger.info("Message received from popup", { type: message.type })
 
     switch (message.type) {
       case "INSERT_REPLY":

@@ -15,6 +15,9 @@ import {
 } from "firebase/firestore"
 import { app } from "./config"
 import { Product, Policy, UserSettings } from "../storage/cache-storage"
+import { createLogger } from "../utils/logger"
+
+const logger = createLogger("Firestore")
 
 const db = getFirestore(app)
 
@@ -45,7 +48,7 @@ function formatFirestoreError(error: any, operation: string): Error {
   const errorCode = error?.code || "unknown"
   const errorMessage = error?.message || "An unknown error occurred"
 
-  console.error(`[Firestore] ${operation} error:`, {
+  logger.error(`${operation} failed`, error, {
     code: errorCode,
     message: errorMessage,
   })
@@ -73,8 +76,9 @@ function formatFirestoreError(error: any, operation: string): Error {
  * Fetch all products for a user
  */
 export async function fetchProducts(userId: string): Promise<Product[]> {
+  const startTime = performance.now()
   try {
-    console.log(`[Firestore] Fetching products for user: ${userId}`)
+    logger.info("Fetching products", { userId })
     const productsRef = collection(db, "users", userId, "products")
     const q = query(productsRef, orderBy("createdAt", "desc"))
     const snapshot = await getDocs(q)
@@ -84,7 +88,8 @@ export async function fetchProducts(userId: string): Promise<Product[]> {
       ...convertTimestamps(doc.data()),
     })) as Product[]
 
-    console.log(`[Firestore] Fetched ${products.length} products`)
+    const elapsed = Math.round(performance.now() - startTime)
+    logger.info(`Fetched ${products.length} products`, { elapsed: `${elapsed}ms` })
     return products
   } catch (error) {
     throw formatFirestoreError(error, "Fetch products")
@@ -95,8 +100,9 @@ export async function fetchProducts(userId: string): Promise<Product[]> {
  * Fetch all policies for a user
  */
 export async function fetchPolicies(userId: string): Promise<Policy[]> {
+  const startTime = performance.now()
   try {
-    console.log(`[Firestore] Fetching policies for user: ${userId}`)
+    logger.info("Fetching policies", { userId })
     const policiesRef = collection(db, "users", userId, "policies")
     const snapshot = await getDocs(policiesRef)
 
@@ -105,7 +111,8 @@ export async function fetchPolicies(userId: string): Promise<Policy[]> {
       ...convertTimestamps(doc.data()),
     })) as Policy[]
 
-    console.log(`[Firestore] Fetched ${policies.length} policies`)
+    const elapsed = Math.round(performance.now() - startTime)
+    logger.info(`Fetched ${policies.length} policies`, { elapsed: `${elapsed}ms` })
     return policies
   } catch (error) {
     throw formatFirestoreError(error, "Fetch policies")
@@ -118,18 +125,20 @@ export async function fetchPolicies(userId: string): Promise<Policy[]> {
 export async function fetchUserSettings(
   userId: string
 ): Promise<UserSettings | null> {
+  const startTime = performance.now()
   try {
-    console.log(`[Firestore] Fetching settings for user: ${userId}`)
+    logger.info("Fetching settings", { userId })
     const settingsRef = doc(db, "users", userId, "settings", "general")
     const settingsSnap = await getDoc(settingsRef)
 
     if (!settingsSnap.exists()) {
-      console.log("[Firestore] No settings found, returning null")
+      logger.info("No settings found, returning null")
       return null
     }
 
     const settings = convertTimestamps(settingsSnap.data()) as UserSettings
-    console.log("[Firestore] Settings fetched successfully")
+    const elapsed = Math.round(performance.now() - startTime)
+    logger.info("Settings fetched successfully", { elapsed: `${elapsed}ms` })
     return settings
   } catch (error) {
     throw formatFirestoreError(error, "Fetch settings")
@@ -144,7 +153,8 @@ export async function fetchAllUserData(userId: string): Promise<{
   policies: Policy[]
   settings: UserSettings | null
 }> {
-  console.log(`[Firestore] Fetching all data for user: ${userId}`)
+  const startTime = performance.now()
+  logger.info("Fetching all user data", { userId })
 
   const [products, policies, settings] = await Promise.all([
     fetchProducts(userId),
@@ -152,6 +162,41 @@ export async function fetchAllUserData(userId: string): Promise<{
     fetchUserSettings(userId),
   ])
 
-  console.log("[Firestore] All data fetched successfully")
+  const elapsed = Math.round(performance.now() - startTime)
+  logger.info("All data fetched successfully", {
+    elapsed: `${elapsed}ms`,
+    counts: {
+      products: products.length,
+      policies: policies.length,
+      hasSettings: settings !== null,
+    },
+  })
   return { products, policies, settings }
+}
+
+/**
+ * Fetch user's encryption salt from Firestore
+ * Used for decrypting API keys
+ */
+export async function getEncryptionSalt(
+  userId: string
+): Promise<string | null> {
+  try {
+    logger.info("Fetching encryption salt", { userId })
+    const securityRef = doc(db, "users", userId, "security", "encryption")
+    const securitySnap = await getDoc(securityRef)
+
+    if (securitySnap.exists()) {
+      const data = securitySnap.data()
+      const salt = (data.salt as string) ?? null
+      logger.info("Encryption salt fetched successfully")
+      return salt
+    }
+
+    logger.info("No encryption salt found (user may not have encrypted keys)")
+    return null
+  } catch (error) {
+    logger.error("Failed to fetch encryption salt", error, { userId })
+    return null
+  }
 }

@@ -3,10 +3,25 @@ import { getAIProvider } from "@/lib/ai"
 import { AIContext, AIProvider, ToneType } from "@/types"
 import { getErrorCode, getErrorMessage, errorIncludes } from "@/types/errors"
 import type { GenerateReplyResponse, ApiErrorResponse } from "@/types/api"
+import { rateLimit, createRateLimitResponse } from "@/lib/rate-limit"
+import { verifyCSRF, createCSRFErrorResponse } from "@/lib/csrf"
+import { sanitizeMessage, ValidationError } from "@/lib/validation/sanitize"
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<GenerateReplyResponse | ApiErrorResponse>> {
+  // Verify CSRF token
+  const csrfResult = verifyCSRF(request)
+  if (!csrfResult.valid) {
+    return createCSRFErrorResponse(csrfResult)
+  }
+
+  // Apply rate limiting (10 requests per 60 seconds per IP)
+  const rateLimitResult = await rateLimit(request)
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult)
+  }
+
   let provider: AIProvider | undefined
   try {
     const body = (await request.json()) as {
@@ -19,7 +34,7 @@ export async function POST(
       tone: ToneType
     }
     const {
-      message,
+      message: rawMessage,
       products,
       policies,
       provider: providerFromBody,
@@ -28,6 +43,20 @@ export async function POST(
       tone,
     } = body
     provider = providerFromBody
+
+    // Sanitize user message (prevents XSS and injection attacks)
+    let message: string
+    try {
+      message = sanitizeMessage(rawMessage)
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        )
+      }
+      throw error
+    }
 
     // TEMPORARY: Auto-migrate deprecated models (remove after Feb 2026)
     // Users can now update models directly in Settings with flexible model input
@@ -41,9 +70,9 @@ export async function POST(
     }
 
     // Validate required fields
-    if (message.length === 0 || provider.length === 0 || apiKey.length === 0) {
+    if (provider.length === 0 || apiKey.length === 0) {
       return NextResponse.json(
-        { error: "Missing required fields: message, provider, apiKey" },
+        { error: "Missing required fields: provider, apiKey" },
         { status: 400 }
       )
     }

@@ -307,6 +307,209 @@ console.log(
 
 See also: [POPUP_FLOW_FIX.md](./POPUP_FLOW_FIX.md)
 
+## Debugging and Logging
+
+The extension uses a centralized logging system with consistent prefixes and log levels. All logs are prefixed with `[ProdSync]` or `[ProdSync:ModuleName]` for easy identification and filtering.
+
+### Where to Find Logs
+
+Logs appear in different consoles depending on the context:
+
+#### 1. Content Script Logs (Etsy Page)
+
+**Open:** DevTools (F12) on Etsy page → Console tab
+
+**Shows:**
+- Button injection status
+- Message extraction
+- Reply insertion
+- DOM manipulation
+- Selector matching
+
+**Example logs:**
+```
+[ProdSync:Content] Message received from popup { type: "INSERT_REPLY" }
+[ProdSync:DOMHelpers] Waiting for element { selector: "textarea", timeout: "5000ms" }
+[ProdSync:DOMHelpers] Text inserted successfully { length: 342 }
+```
+
+#### 2. Background Script Logs (Service Worker)
+
+**Open:** chrome://extensions → Find ProdSync → "Inspect views: service worker"
+
+**Shows:**
+- API requests
+- Token refresh operations
+- Firestore data fetching
+- Cache operations
+
+**Example logs:**
+```
+[ProdSync:Background] Refreshing auth token
+[ProdSync:API] POST /api/ai/generate-reply
+[ProdSync:Firestore] Fetched 15 products { elapsed: "234ms" }
+[ProdSync:Cache] Cache hit: products { count: 15 }
+```
+
+**⚠️ Important:** Background logs do NOT appear in the main browser DevTools. You must use the service worker console.
+
+#### 3. Popup Logs (Extension Popup)
+
+**Open:** Right-click extension icon → "Inspect popup" → Console tab
+
+**Shows:**
+- Authentication flow
+- Form state changes
+- Reply generation requests
+- User interactions
+
+**Example logs:**
+```
+[ProdSync:Popup] Generating reply { tone: "professional", productCount: 3 }
+[ProdSync:Popup] Reply generated { length: 287 }
+```
+
+### Log Levels
+
+The logging system supports 4 log levels:
+
+#### INFO (Normal operations)
+Default log level. Shows important operations and their results.
+```
+[ProdSync:Firestore] Fetched 15 products
+[ProdSync:API] POST /api/ai/generate-reply
+[ProdSync:Content] Message received from popup
+```
+
+#### DEBUG (Detailed debugging)
+Only visible in development builds (`npm run dev`). Disabled in production.
+```
+[ProdSync:Cache] [DEBUG] Cache hit: products { count: 15 }
+[ProdSync:DOMHelpers] [DEBUG] Element already exists in DOM
+[ProdSync:AuthStorage] [DEBUG] Retrieved valid auth token
+```
+
+#### WARN (Non-fatal issues)
+Issues that may affect functionality but don't prevent operation.
+```
+[ProdSync:AuthStorage] [WARN] Auth token expired or expiring soon
+[ProdSync:DOMHelpers] [WARN] Element not found after timeout
+[ProdSync:Content] [WARN] Button injection failed, will retry
+```
+
+#### ERROR (Fatal errors)
+Errors that prevent operations from completing.
+```
+[ProdSync:API] [ERROR] Network error: Failed to fetch
+[ProdSync:Firestore] [ERROR] Fetch products failed { code: "permission-denied" }
+[ProdSync:DOMHelpers] [ERROR] Failed to insert text
+```
+
+### Log Module Prefixes
+
+All logs include a module name for easy filtering:
+
+| Prefix | Module | Location |
+|--------|--------|----------|
+| `[ProdSync:Content]` | Content script | Etsy page DevTools |
+| `[ProdSync:Background]` | Background worker | Service worker console |
+| `[ProdSync:API]` | API client | Service worker console |
+| `[ProdSync:Firestore]` | Firestore operations | Service worker console |
+| `[ProdSync:Firebase]` | Firebase initialization | Service worker console |
+| `[ProdSync:AuthStorage]` | Auth token storage | Service worker console |
+| `[ProdSync:Cache]` | Cache operations | Service worker console |
+| `[ProdSync:DOMHelpers]` | DOM manipulation | Etsy page DevTools |
+
+### Filtering Logs
+
+Use the Console filter input to narrow down logs:
+
+- **All ProdSync logs:** `ProdSync`
+- **Content script only:** `ProdSync:Content`
+- **API calls only:** `ProdSync:API`
+- **Errors only:** `[ERROR]`
+- **Warnings only:** `[WARN]`
+- **Debug logs:** `[DEBUG]` (development only)
+
+### Common Debugging Scenarios
+
+#### 1. Button Not Appearing
+
+**Check:** Content script logs (F12 on Etsy page)
+
+**Look for:**
+```
+[ProdSync:Content] [ERROR] Could not find textarea
+[ProdSync:DOMHelpers] [WARN] Element not found after timeout
+```
+
+**Solution:** Update selectors in `src/content/etsy-selectors.ts` and rebuild.
+
+#### 2. API Call Failing
+
+**Check:** Background script logs (chrome://extensions → Inspect service worker)
+
+**Look for:**
+```
+[ProdSync:API] [ERROR] API request failed { status: 403, message: "Invalid API key" }
+[ProdSync:API] [ERROR] Network error: Failed to fetch
+```
+
+**Solution:** Check API keys in main ProdSync app settings.
+
+#### 3. Token Expired
+
+**Check:** Background script logs
+
+**Look for:**
+```
+[ProdSync:AuthStorage] [WARN] Auth token expired or expiring soon
+[ProdSync:Background] Refreshing auth token
+```
+
+**Solution:** Token should auto-refresh. If it fails, sign out and sign back in.
+
+#### 4. Cache Not Working
+
+**Check:** Background script logs
+
+**Look for:**
+```
+[ProdSync:Cache] [DEBUG] Cache miss: products cache expired or invalid
+[ProdSync:Firestore] Fetching products
+```
+
+**Solution:** Cache expires after 1 hour. This is normal behavior.
+
+#### 5. Firestore Permission Denied
+
+**Check:** Background script logs
+
+**Look for:**
+```
+[ProdSync:Firestore] [ERROR] Fetch products failed { code: "permission-denied" }
+```
+
+**Solution:** Check Firebase security rules in Firebase Console.
+
+### Development vs Production Logging
+
+- **Development builds** (`npm run dev`): All log levels (DEBUG, INFO, WARN, ERROR)
+- **Production builds** (`npm run build`): Only INFO, WARN, ERROR (DEBUG logs disabled)
+
+This reduces noise in production while maintaining detailed debugging in development.
+
+### Performance Logging
+
+Some operations include timing information:
+
+```
+[ProdSync:Firestore] Fetched 15 products { elapsed: "234ms" }
+[ProdSync:Firestore] All data fetched successfully { elapsed: "567ms", counts: {...} }
+```
+
+This helps identify slow operations and performance bottlenecks.
+
 ## Recent Updates (February 2026)
 
 - ✅ **Fixed**: Button not appearing on `/messages` page (URL pattern issue)
@@ -314,6 +517,9 @@ See also: [POPUP_FLOW_FIX.md](./POPUP_FLOW_FIX.md)
 - ✅ **Enhanced**: Debugging with visual indicators (✓, ✅, ❌)
 - ✅ **Added**: Comprehensive debugging guide
 - ✅ **Improved**: Message storage with 5-minute expiry
+- ✅ **NEW**: Centralized logging system with consistent prefixes and log levels
+- ✅ **NEW**: Performance timing for Firestore operations
+- ✅ **NEW**: Enhanced cache logging (hit/miss tracking)
 
 ## Next Steps
 

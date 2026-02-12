@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@/lib/context/AuthContext"
+import { useState } from "react"
 import { Header } from "@/components/dashboard/Header"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,50 +12,27 @@ import {
 import { useToast } from "@/components/ui/use-toast"
 import { PolicyList } from "@/components/policies/PolicyList"
 import { PolicyForm } from "@/components/policies/PolicyForm"
+import { PolicyListSkeleton } from "@/components/skeletons/PolicyListSkeleton"
 import {
-  getPolicies,
-  createPolicy,
-  updatePolicy,
-  deletePolicy,
-} from "@/lib/firebase/firestore"
+  usePolicies,
+  useCreatePolicy,
+  useUpdatePolicy,
+  useDeletePolicy,
+} from "@/lib/hooks/usePolicies"
 import { Policy } from "@/types"
 import { getErrorMessage } from "@/types/errors"
-import { Plus, Loader2 } from "lucide-react"
+import { Plus } from "lucide-react"
 
 export default function PoliciesPage(): JSX.Element {
-  const { user } = useAuth()
   const { toast } = useToast()
-  const [policies, setPolicies] = useState<Policy[]>([])
-  const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchPolicies = async (): Promise<void> => {
-      if (user === null) {
-        return
-      }
-      try {
-        const data = await getPolicies(user.uid)
-        setPolicies(data)
-      } catch (error: unknown) {
-        console.error("Failed to load policies:", error)
-        toast({
-          variant: "destructive",
-          title: "Error loading policies",
-          description:
-            getErrorMessage(error) ??
-            "Failed to load policies. Please check your Firebase configuration.",
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    void fetchPolicies()
-  }, [user, toast])
+  // React Query hooks
+  const { data: policies = [], isLoading } = usePolicies()
+  const createMutation = useCreatePolicy()
+  const updateMutation = useUpdatePolicy()
+  const deleteMutation = useDeletePolicy()
 
   const handleAddPolicy = (): void => {
     setEditingPolicy(null)
@@ -71,32 +47,20 @@ export default function PoliciesPage(): JSX.Element {
   const handleSubmitPolicy = async (
     data: Omit<Policy, "id" | "createdAt" | "updatedAt">
   ): Promise<void> => {
-    if (user === null) {
-      return
-    }
-
-    setIsSubmitting(true)
     try {
       if (editingPolicy !== null) {
-        await updatePolicy(user.uid, editingPolicy.id, data)
-        setPolicies((prev) =>
-          prev.map((p) => (p.id === editingPolicy.id ? { ...p, ...data } : p))
-        )
+        // Update existing policy
+        await updateMutation.mutateAsync({
+          policyId: editingPolicy.id,
+          data,
+        })
         toast({
           title: "Policy updated",
           description: "Your policy has been updated successfully.",
         })
       } else {
-        const id = await createPolicy(user.uid, data)
-        setPolicies((prev) => [
-          {
-            id,
-            ...data,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          } as Policy,
-          ...prev,
-        ])
+        // Create new policy
+        await createMutation.mutateAsync(data)
         toast({
           title: "Policy added",
           description: "Your policy has been added successfully.",
@@ -111,20 +75,12 @@ export default function PoliciesPage(): JSX.Element {
         description:
           getErrorMessage(error) ?? "Failed to save policy. Please try again.",
       })
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
   const handleDeletePolicy = async (policyId: string): Promise<void> => {
-    if (user === null) {
-      return
-    }
-
-    setDeletingId(policyId)
     try {
-      await deletePolicy(user.uid, policyId)
-      setPolicies((prev) => prev.filter((p) => p.id !== policyId))
+      await deleteMutation.mutateAsync(policyId)
       toast({
         title: "Policy deleted",
         description: "The policy has been removed.",
@@ -138,8 +94,6 @@ export default function PoliciesPage(): JSX.Element {
           getErrorMessage(error) ??
           "Failed to delete policy. Please try again.",
       })
-    } finally {
-      setDeletingId(null)
     }
   }
 
@@ -167,10 +121,8 @@ export default function PoliciesPage(): JSX.Element {
           </Button>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
+        {isLoading ? (
+          <PolicyListSkeleton />
         ) : (
           <PolicyList
             policies={policies}
@@ -178,7 +130,9 @@ export default function PoliciesPage(): JSX.Element {
             onDelete={(policyId: string): void => {
               void handleDeletePolicy(policyId)
             }}
-            isDeleting={deletingId ?? undefined}
+            isDeleting={
+              deleteMutation.isPending ? deleteMutation.variables : undefined
+            }
           />
         )}
       </div>
@@ -195,7 +149,7 @@ export default function PoliciesPage(): JSX.Element {
             policy={editingPolicy ?? undefined}
             onSubmit={handleSubmitPolicy}
             onCancel={(): void => setIsDialogOpen(false)}
-            isLoading={isSubmitting}
+            isLoading={createMutation.isPending || updateMutation.isPending}
           />
         </DialogContent>
       </Dialog>

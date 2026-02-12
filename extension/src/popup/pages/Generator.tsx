@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { User } from "firebase/auth"
 import { signOut } from "../../shared/firebase/auth"
+import { createLogger } from "../../shared/utils/logger"
+
+const logger = createLogger("GeneratorPopup")
 import { Button } from "../../components/ui/button"
 import {
   Card,
@@ -15,6 +18,9 @@ import {
   Policy,
   UserSettings,
 } from "../../shared/storage/cache-storage"
+import { PasswordPrompt } from "../../components/PasswordPrompt"
+import { isEncrypted, decryptApiKeys } from "../../shared/crypto/encryption"
+import { getEncryptionSalt } from "../../shared/firebase/firestore"
 
 interface GeneratorProps {
   user: User
@@ -41,10 +47,33 @@ export default function Generator({ user }: GeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
 
+  // Encryption state
+  const [needsPassword, setNeedsPassword] = useState(false)
+  const [encryptionSalt, setEncryptionSalt] = useState<string | null>(null)
+  const [isDecrypting, setIsDecrypting] = useState(false)
+
+  // Track userId changes for cache invalidation
+  const prevUserIdRef = useRef<string | null>(null)
+
   useEffect(() => {
     loadBuyerMessage()
     loadUserData()
   }, [])
+
+  // Detect userId changes and clear old user's cache
+  useEffect(() => {
+    if (user && prevUserIdRef.current && prevUserIdRef.current !== user.uid) {
+      logger.info("User changed, invalidating old cache", {
+        oldUserId: prevUserIdRef.current,
+        newUserId: user.uid,
+      })
+      chrome.runtime.sendMessage({
+        type: "CLEAR_USER_CACHE",
+        payload: { userId: prevUserIdRef.current },
+      })
+    }
+    prevUserIdRef.current = user ? user.uid : null
+  }, [user])
 
   async function loadBuyerMessage(): Promise<void> {
     try {
@@ -173,17 +202,77 @@ export default function Generator({ user }: GeneratorProps) {
 
       // Handle settings
       if (settingsResponse.type === "SETTINGS_FETCHED") {
-        setSettings(settingsResponse.payload)
-        setSelectedTone(settingsResponse.payload.defaultTone)
-        console.log("[ProdSync Popup] Loaded user settings")
+        const fetchedSettings = settingsResponse.payload
+        setSettings(fetchedSettings)
+        setSelectedTone(fetchedSettings.defaultTone)
+        logger.info("Loaded user settings")
+
+        // Check if any API keys are encrypted
+        const hasEncryptedKeys =
+          (fetchedSettings.apiKeys.openai &&
+            isEncrypted(fetchedSettings.apiKeys.openai)) ||
+          (fetchedSettings.apiKeys.gemini &&
+            isEncrypted(fetchedSettings.apiKeys.gemini)) ||
+          (fetchedSettings.apiKeys.anthropic &&
+            isEncrypted(fetchedSettings.apiKeys.anthropic))
+
+        if (hasEncryptedKeys) {
+          logger.info("API keys are encrypted, fetching salt")
+          // Fetch encryption salt
+          const salt = await getEncryptionSalt(user.uid)
+          if (salt) {
+            setEncryptionSalt(salt)
+            setNeedsPassword(true)
+            logger.info("Salt fetched, prompting for password")
+          } else {
+            logger.error("Failed to fetch encryption salt")
+            setError(
+              "Failed to fetch encryption data. Please try again or re-configure API keys in the main app."
+            )
+          }
+        } else {
+          logger.info("API keys are not encrypted (plaintext)")
+        }
       } else if (settingsResponse.type === "ERROR") {
-        console.warn(
-          "[ProdSync Popup] Settings error:",
-          settingsResponse.payload.message
-        )
+        logger.warn("Settings error", { message: settingsResponse.payload.message })
       }
     } catch (error) {
-      console.error("[ProdSync Popup] Error loading user data:", error)
+      logger.error("Error loading user data", error)
+    }
+  }
+
+  async function handlePasswordSubmit(password: string): Promise<void> {
+    if (!settings || !encryptionSalt) {
+      throw new Error("Settings or salt not available")
+    }
+
+    try {
+      setIsDecrypting(true)
+      logger.info("Decrypting API keys")
+
+      // Decrypt API keys
+      const decryptedKeys = await decryptApiKeys(
+        settings.apiKeys,
+        password
+      )
+
+      // Update settings with decrypted keys (provide defaults for optional properties)
+      setSettings({
+        ...settings,
+        apiKeys: {
+          openai: decryptedKeys.openai ?? "",
+          gemini: decryptedKeys.gemini ?? "",
+          anthropic: decryptedKeys.anthropic ?? "",
+        },
+      })
+
+      logger.info("API keys decrypted successfully")
+      setNeedsPassword(false)
+    } catch (error) {
+      logger.error("Failed to decrypt API keys", error)
+      throw new Error("Invalid password or decryption failed")
+    } finally {
+      setIsDecrypting(false)
     }
   }
 
@@ -296,6 +385,31 @@ export default function Generator({ user }: GeneratorProps) {
       prev.includes(productId)
         ? prev.filter((id) => id !== productId)
         : [...prev, productId]
+    )
+  }
+
+  // Show password prompt if API keys are encrypted
+  if (needsPassword) {
+    return (
+      <div className="extension-popup bg-background p-4 space-y-4 max-w-md">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold">ProdSync</h2>
+            <p className="text-xs text-muted-foreground">
+              {user.displayName || user.email}
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleSignOut}>
+            Sign Out
+          </Button>
+        </div>
+        <PasswordPrompt
+          onPasswordSubmit={handlePasswordSubmit}
+          title="Enter Password to Decrypt API Keys"
+          description="Your API keys are encrypted. Enter your account password to decrypt them."
+          loading={isDecrypting}
+        />
+      </div>
     )
   }
 

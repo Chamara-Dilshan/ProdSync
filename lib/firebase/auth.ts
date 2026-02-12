@@ -10,6 +10,7 @@ import {
 } from "firebase/auth"
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
 import { auth, db } from "./config"
+import { generateSalt } from "@/lib/crypto/encryption"
 
 const googleProvider = new GoogleAuthProvider()
 
@@ -45,6 +46,15 @@ async function createUserDocument(user: User): Promise<void> {
         gemini: "",
         anthropic: "",
       },
+    })
+
+    // Generate and store encryption salt for API key encryption
+    const salt = generateSalt()
+    await setDoc(doc(db, "users", user.uid, "security", "encryption"), {
+      salt,
+      createdAt: serverTimestamp(),
+      algorithm: "AES-256-GCM",
+      iterations: 100000, // PBKDF2 iterations
     })
   }
 }
@@ -101,4 +111,29 @@ export function onAuthChange(
 // Get current user
 export function getCurrentUser(): User | null {
   return auth.currentUser
+}
+
+/**
+ * Get encryption salt for user
+ * Used for deriving encryption key from password
+ * @param userId - User ID
+ * @returns Base64 encoded salt, or null if not found
+ */
+export async function getEncryptionSalt(
+  userId: string
+): Promise<string | null> {
+  try {
+    const securityRef = doc(db, "users", userId, "security", "encryption")
+    const securitySnap = await getDoc(securityRef)
+
+    if (securitySnap.exists()) {
+      const data = securitySnap.data()
+      return (data.salt as string) ?? null
+    }
+
+    return null
+  } catch (error) {
+    console.error("Failed to fetch encryption salt:", error)
+    return null
+  }
 }

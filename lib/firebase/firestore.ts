@@ -8,12 +8,16 @@ import {
   deleteDoc,
   query,
   orderBy,
+  limit,
+  startAfter,
   serverTimestamp,
   DocumentData,
   Timestamp,
+  QueryDocumentSnapshot,
 } from "firebase/firestore"
 import { db } from "./config"
 import { Product, Policy, UserSettings } from "@/types"
+import { sanitizeProductData, sanitizePolicyData } from "../validation/sanitize"
 
 // Helper function to convert Firestore Timestamp to Date
 function convertTimestamps<T = DocumentData>(data: T): T {
@@ -158,6 +162,52 @@ export async function getProduct(
   }
 }
 
+/**
+ * Get products with pagination
+ * @param userId - User ID
+ * @param pageSize - Number of products per page (default: 20)
+ * @param lastDoc - Last document from previous page (for pagination)
+ * @returns Products and the last document for next page
+ */
+export async function getProductsPaginated(
+  userId: string,
+  pageSize = 20,
+  lastDoc?: QueryDocumentSnapshot<DocumentData>
+): Promise<{
+  products: Product[]
+  lastDoc: QueryDocumentSnapshot<DocumentData> | null
+  hasMore: boolean
+}> {
+  try {
+    const productsRef = collection(db, "users", userId, "products")
+    let q = query(productsRef, orderBy("createdAt", "desc"), limit(pageSize + 1))
+
+    if (lastDoc !== undefined) {
+      q = query(productsRef, orderBy("createdAt", "desc"), startAfter(lastDoc), limit(pageSize + 1))
+    }
+
+    const snapshot = await getDocs(q)
+    const hasMore = snapshot.docs.length > pageSize
+    const docs = hasMore ? snapshot.docs.slice(0, pageSize) : snapshot.docs
+
+    const products = docs.map((doc) => {
+      const data = convertTimestamps(doc.data())
+      return {
+        id: doc.id,
+        ...normalizeProduct(data),
+      }
+    })
+
+    return {
+      products,
+      lastDoc: docs.length > 0 ? docs[docs.length - 1] : null,
+      hasMore,
+    }
+  } catch (error) {
+    throw formatFirebaseError(error, "Load products")
+  }
+}
+
 export async function createProduct(
   userId: string,
   product: Omit<Product, "id" | "createdAt" | "updatedAt">
@@ -166,8 +216,11 @@ export async function createProduct(
     const productsRef = collection(db, "users", userId, "products")
     const newProductRef = doc(productsRef)
 
+    // Sanitize product data (prevents XSS and injection attacks)
+    const sanitized = sanitizeProductData(product)
+
     // Remove undefined fields before saving to Firestore
-    const cleanedProduct = removeUndefinedFields(product)
+    const cleanedProduct = removeUndefinedFields(sanitized)
 
     await setDoc(newProductRef, {
       ...cleanedProduct,
@@ -189,8 +242,29 @@ export async function updateProduct(
   try {
     const productRef = doc(db, "users", userId, "products", productId)
 
+    // Sanitize partial updates (only sanitize provided fields)
+    const sanitized = sanitizeProductData({
+      ...updates,
+      // Ensure required fields for sanitization
+      name: updates.name ?? "temp",
+      price: updates.price ?? 0,
+    })
+
+    // Only keep fields that were actually updated
+    const partialSanitized: Partial<Product> = {}
+    if (updates.name !== undefined) partialSanitized.name = sanitized.name
+    if (updates.description !== undefined)
+      partialSanitized.description = sanitized.description
+    if (updates.price !== undefined) partialSanitized.price = sanitized.price
+    if (updates.sizes !== undefined) partialSanitized.sizes = sanitized.sizes
+    if (updates.colors !== undefined) partialSanitized.colors = sanitized.colors
+    if (updates.careInstructions !== undefined)
+      partialSanitized.careInstructions = sanitized.careInstructions
+    if (updates.customizationOptions !== undefined)
+      partialSanitized.customizationOptions = sanitized.customizationOptions
+
     // Remove undefined fields before saving to Firestore
-    const cleanedUpdates = removeUndefinedFields(updates)
+    const cleanedUpdates = removeUndefinedFields(partialSanitized)
 
     await updateDoc(productRef, {
       ...cleanedUpdates,
@@ -257,6 +331,49 @@ export async function getPolicy(
   return { id: policySnap.id, ...policySnap.data() } as Policy
 }
 
+/**
+ * Get policies with pagination
+ * @param userId - User ID
+ * @param pageSize - Number of policies per page (default: 20)
+ * @param lastDoc - Last document from previous page (for pagination)
+ * @returns Policies and the last document for next page
+ */
+export async function getPoliciesPaginated(
+  userId: string,
+  pageSize = 20,
+  lastDoc?: QueryDocumentSnapshot<DocumentData>
+): Promise<{
+  policies: Policy[]
+  lastDoc: QueryDocumentSnapshot<DocumentData> | null
+  hasMore: boolean
+}> {
+  try {
+    const policiesRef = collection(db, "users", userId, "policies")
+    let q = query(policiesRef, orderBy("createdAt", "desc"), limit(pageSize + 1))
+
+    if (lastDoc !== undefined) {
+      q = query(policiesRef, orderBy("createdAt", "desc"), startAfter(lastDoc), limit(pageSize + 1))
+    }
+
+    const snapshot = await getDocs(q)
+    const hasMore = snapshot.docs.length > pageSize
+    const docs = hasMore ? snapshot.docs.slice(0, pageSize) : snapshot.docs
+
+    const policies = docs.map((doc) => ({
+      id: doc.id,
+      ...convertTimestamps(doc.data()),
+    })) as Policy[]
+
+    return {
+      policies,
+      lastDoc: docs.length > 0 ? docs[docs.length - 1] : null,
+      hasMore,
+    }
+  } catch (error) {
+    throw formatFirebaseError(error, "Load policies")
+  }
+}
+
 export async function createPolicy(
   userId: string,
   policy: Omit<Policy, "id" | "createdAt" | "updatedAt">
@@ -265,8 +382,15 @@ export async function createPolicy(
     const policiesRef = collection(db, "users", userId, "policies")
     const newPolicyRef = doc(policiesRef)
 
+    // Sanitize policy data (prevents XSS and injection attacks)
+    const sanitized = sanitizePolicyData(policy)
+
     // Remove undefined fields before saving to Firestore
-    const cleanedPolicy = removeUndefinedFields(policy)
+    const cleanedPolicy = removeUndefinedFields({
+      ...policy,
+      title: sanitized.title,
+      content: sanitized.content,
+    })
 
     await setDoc(newPolicyRef, {
       ...cleanedPolicy,
@@ -288,8 +412,21 @@ export async function updatePolicy(
   try {
     const policyRef = doc(db, "users", userId, "policies", policyId)
 
+    // Sanitize partial updates (only sanitize provided fields)
+    const partialSanitized: Partial<Policy> = { ...updates }
+
+    if (updates.title !== undefined || updates.content !== undefined) {
+      const sanitized = sanitizePolicyData({
+        title: updates.title ?? "temp",
+        content: updates.content ?? "temp",
+      })
+
+      if (updates.title !== undefined) partialSanitized.title = sanitized.title
+      if (updates.content !== undefined) partialSanitized.content = sanitized.content
+    }
+
     // Remove undefined fields before saving to Firestore
-    const cleanedUpdates = removeUndefinedFields(updates)
+    const cleanedUpdates = removeUndefinedFields(partialSanitized)
 
     await updateDoc(policyRef, {
       ...cleanedUpdates,

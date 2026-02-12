@@ -190,10 +190,10 @@ async function handleFetchProducts(
   try {
     console.log("[ProdSync] Fetching products for user:", userId)
 
-    // Try cache first
-    const cachedProducts = await CacheStorage.getProducts()
+    // Try cache first (with userId validation)
+    const cachedProducts = await CacheStorage.getProducts(userId)
     if (cachedProducts) {
-      console.log("[ProdSync] Returning cached products")
+      console.log("[ProdSync] Returning cached products for user:", userId)
       sendResponse({
         type: "PRODUCTS_FETCHED",
         payload: cachedProducts,
@@ -204,8 +204,8 @@ async function handleFetchProducts(
     // Fetch from Firestore
     const products = await fetchProducts(userId)
 
-    // Cache the results
-    await CacheStorage.setProducts(products)
+    // Cache the results (scoped to userId)
+    await CacheStorage.setProducts(userId, products)
 
     sendResponse({
       type: "PRODUCTS_FETCHED",
@@ -230,10 +230,10 @@ async function handleFetchPolicies(
   try {
     console.log("[ProdSync] Fetching policies for user:", userId)
 
-    // Try cache first
-    const cachedPolicies = await CacheStorage.getPolicies()
+    // Try cache first (with userId validation)
+    const cachedPolicies = await CacheStorage.getPolicies(userId)
     if (cachedPolicies) {
-      console.log("[ProdSync] Returning cached policies")
+      console.log("[ProdSync] Returning cached policies for user:", userId)
       sendResponse({
         type: "POLICIES_FETCHED",
         payload: cachedPolicies,
@@ -244,8 +244,8 @@ async function handleFetchPolicies(
     // Fetch from Firestore
     const policies = await fetchPolicies(userId)
 
-    // Cache the results
-    await CacheStorage.setPolicies(policies)
+    // Cache the results (scoped to userId)
+    await CacheStorage.setPolicies(userId, policies)
 
     sendResponse({
       type: "POLICIES_FETCHED",
@@ -270,10 +270,10 @@ async function handleFetchSettings(
   try {
     console.log("[ProdSync] Fetching settings for user:", userId)
 
-    // Try cache first
-    const cachedSettings = await CacheStorage.getUserSettings()
+    // Try cache first (with userId validation)
+    const cachedSettings = await CacheStorage.getUserSettings(userId)
     if (cachedSettings) {
-      console.log("[ProdSync] Returning cached settings")
+      console.log("[ProdSync] Returning cached settings for user:", userId)
       sendResponse({
         type: "SETTINGS_FETCHED",
         payload: cachedSettings,
@@ -296,8 +296,8 @@ async function handleFetchSettings(
       return
     }
 
-    // Cache the results
-    await CacheStorage.setUserSettings(settings)
+    // Cache the results (scoped to userId)
+    await CacheStorage.setUserSettings(userId, settings)
 
     sendResponse({
       type: "SETTINGS_FETCHED",
