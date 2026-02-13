@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   User,
   updateProfile,
+  sendPasswordResetEmail as firebaseSendPasswordResetEmail,
 } from "firebase/auth"
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
 import { auth, db } from "./config"
@@ -136,4 +137,14 @@ export async function getEncryptionSalt(
     console.error("Failed to fetch encryption salt:", error)
     return null
   }
+}
+
+/**
+ * Send password reset email to user
+ * Uses Firebase's built-in password reset system
+ * @param email - User's email address
+ * @returns Promise that resolves when email is sent
+ */
+export async function sendPasswordResetEmail(email: string): Promise<void> {
+  await firebaseSendPasswordResetEmail(auth, email)
 }
