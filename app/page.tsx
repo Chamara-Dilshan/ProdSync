@@ -93,7 +93,9 @@ export default function HomePage(): React.ReactElement {
 
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 text-center text-gray-500 text-sm">
-        <p>&copy; 2025 ProdSync. Built for Etsy sellers.</p>
+        <p>
+          &copy; 2026 Chamara Dilshan &amp; ProdSync. Built for Etsy sellers.
+        </p>
       </footer>
     </div>
   )
