@@ -1,5 +1,19 @@
 "use client"
 
+import { useState } from "react"
+import {
+  Download,
+  Chrome,
+  Check,
+  AlertCircle,
+  ExternalLink,
+  Zap,
+  MessageSquare,
+  ShoppingBag,
+  Smile,
+  CheckCircle2,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -7,22 +21,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Header } from "@/components/dashboard/Header"
 import { DemoSection } from "@/components/extension/DemoSection"
-import {
-  Chrome,
-  Zap,
-  MessageSquare,
-  ShoppingBag,
-  Smile,
-  CheckCircle2,
-  Download,
-  ExternalLink,
-} from "lucide-react"
 
 export default function ExtensionPage(): JSX.Element {
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  const handleDownload = (): void => {
+    setIsDownloading(true)
+
+    // Trigger download
+    const link = document.createElement("a")
+    link.href = "/downloads/ProdSync-Extension.zip"
+    link.download = "ProdSync-Extension.zip"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    setTimeout(() => {
+      setIsDownloading(false)
+    }, 1000)
+  }
+
   const features = [
     {
       icon: Zap,
@@ -50,33 +72,6 @@ export default function ExtensionPage(): JSX.Element {
     },
   ]
 
-  const installSteps = [
-    {
-      number: 1,
-      title: "Download the Extension",
-      description:
-        "Visit the Chrome Web Store and click 'Add to Chrome' to install ProdSync.",
-    },
-    {
-      number: 2,
-      title: "Sign In",
-      description:
-        "Click the ProdSync icon in your Chrome toolbar and sign in with your account credentials.",
-    },
-    {
-      number: 3,
-      title: "Configure Settings",
-      description:
-        "Make sure you've configured your AI provider API keys in the Settings page of this web app.",
-    },
-    {
-      number: 4,
-      title: "Use on Etsy",
-      description:
-        "Visit your Etsy messages page and look for the '✨ Generate Reply' button next to the message textarea.",
-    },
-  ]
-
   return (
     <div>
       <Header
@@ -86,7 +81,20 @@ export default function ExtensionPage(): JSX.Element {
 
       <div className="px-4 md:px-6 lg:px-8 py-4 md:py-6">
         <div className="space-y-6 md:space-y-8">
-          {/* Hero Section */}
+          {/* Alert - API Keys Warning */}
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Before Installing</AlertTitle>
+            <AlertDescription>
+              Make sure you have configured your API keys in{" "}
+              <a href="/dashboard/settings" className="underline font-medium">
+                Settings
+              </a>{" "}
+              before using the extension.
+            </AlertDescription>
+          </Alert>
+
+          {/* Hero Section - Download Card */}
           <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
             <CardHeader className="text-center pb-4">
               <div className="flex justify-center mb-4">
@@ -103,26 +111,29 @@ export default function ExtensionPage(): JSX.Element {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button size="lg" className="w-full sm:w-auto min-h-[44px]">
+              <Button
+                size="lg"
+                className="w-full sm:w-auto min-h-[44px]"
+                onClick={handleDownload}
+                disabled={isDownloading}
+              >
                 <Download className="mr-2 h-5 w-5" />
-                Install Extension
-                <Badge variant="secondary" className="ml-2">
-                  Coming Soon
-                </Badge>
+                {isDownloading ? "Downloading..." : "Download Extension"}
               </Button>
               <Button
                 size="lg"
                 variant="outline"
                 className="w-full sm:w-auto min-h-[44px]"
                 onClick={(): void => {
-                  window.open(
-                    "https://github.com/yourusername/prodsync-extension",
-                    "_blank"
-                  )
+                  const link = document.createElement("a")
+                  link.href = "#installation"
+                  document.body.appendChild(link)
+                  link.click()
+                  document.body.removeChild(link)
                 }}
               >
                 <ExternalLink className="mr-2 h-5 w-5" />
-                View on GitHub
+                View Instructions
               </Button>
             </CardContent>
           </Card>
@@ -155,49 +166,14 @@ export default function ExtensionPage(): JSX.Element {
             </div>
           </div>
 
-          {/* Installation Steps */}
-          <div>
-            <h2 className="text-xl md:text-2xl font-semibold mb-4">
-              Installation Guide
-            </h2>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="space-y-6">
-                  {installSteps.map((step) => (
-                    <div key={step.number} className="flex gap-4">
-                      <div className="flex-shrink-0">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
-                          {step.number}
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-base md:text-lg mb-1">
-                          {step.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {step.description}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
           {/* How It Works Section */}
           <div>
             <h2 className="text-xl md:text-2xl font-semibold mb-4">
               How It Works
             </h2>
 
-            {/* Demo Section - supports video, GIF, or screenshot carousel */}
-            <DemoSection
-              mode="screenshots" // Change to "video" or "gif" when you have media
-              // videoUrl="https://www.youtube.com/embed/YOUR_VIDEO_ID" // For YouTube
-              // gifUrl="/demo.gif" // For GIF demo
-              // screenshots={[...]} // Custom screenshots array (optional)
-            />
+            {/* Demo Section */}
+            <DemoSection mode="screenshots" />
 
             {/* Workflow Steps */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
@@ -231,6 +207,97 @@ export default function ExtensionPage(): JSX.Element {
             </div>
           </div>
 
+          {/* Installation Guide */}
+          <div id="installation">
+            <h2 className="text-xl md:text-2xl font-semibold mb-4">
+              Installation Guide
+            </h2>
+            <Card>
+              <CardContent className="pt-6">
+                <ol className="space-y-6">
+                  <li className="flex gap-4">
+                    <div className="flex-shrink-0">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
+                        1
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-base md:text-lg mb-1">
+                        Download the Extension
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Click the "Download Extension" button above to download
+                        the ZIP file
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex gap-4">
+                    <div className="flex-shrink-0">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
+                        2
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-base md:text-lg mb-1">
+                        Extract the ZIP
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Extract the ZIP file to a folder on your computer.
+                        Remember the location!
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex gap-4">
+                    <div className="flex-shrink-0">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
+                        3
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-base md:text-lg mb-1">
+                        Load in Chrome
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Open Chrome and go to{" "}
+                        <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                          chrome://extensions/
+                        </code>
+                        . Enable "Developer mode" (top-right toggle), click
+                        "Load unpacked", and select the extracted "dist" folder.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex gap-4">
+                    <div className="flex-shrink-0">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
+                        4
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-base md:text-lg mb-1">
+                        Use on Etsy
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Visit{" "}
+                        <a
+                          href="https://www.etsy.com/messages"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          Etsy Messages
+                          <ExternalLink className="h-3 w-3" />
+                        </a>{" "}
+                        and look for the "✨ Generate Reply" button next to the
+                        message textarea.
+                      </p>
+                    </div>
+                  </li>
+                </ol>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Requirements Section */}
           <div>
             <h2 className="text-xl md:text-2xl font-semibold mb-4">
@@ -243,7 +310,8 @@ export default function ExtensionPage(): JSX.Element {
                     <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <span className="text-sm">
                       <strong>Google Chrome Browser</strong> - Extension is
-                      designed for Chrome (Version 88 or higher)
+                      designed for Chrome (Version 88 or higher). Also works on
+                      Edge and Brave.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
@@ -298,8 +366,8 @@ export default function ExtensionPage(): JSX.Element {
                   </CardTitle>
                   <CardDescription>
                     Currently, the extension is only available for Google
-                    Chrome. We may support other browsers in the future based on
-                    user demand.
+                    Chrome. It also works on Chromium-based browsers like Edge
+                    and Brave. We may support Firefox in the future.
                   </CardDescription>
                 </CardHeader>
               </Card>
