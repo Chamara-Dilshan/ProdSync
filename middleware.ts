@@ -42,7 +42,7 @@ function handlePreflight(origin: string | null): NextResponse {
  */
 function addCorsHeaders(response: NextResponse, origin: string | null): void {
   // Check if origin is allowed
-  if (origin && isAllowedOrigin(origin)) {
+  if (origin !== null && origin !== "" && isAllowedOrigin(origin)) {
     response.headers.set("Access-Control-Allow-Origin", origin)
     response.headers.set("Access-Control-Allow-Credentials", "true")
   }
@@ -54,7 +54,7 @@ function addCorsHeaders(response: NextResponse, origin: string | null): void {
   )
   response.headers.set(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With, Accept, Origin"
+    "Content-Type, Authorization, X-Requested-With, X-CSRF-Token, Accept, Origin"
   )
   response.headers.set("Access-Control-Max-Age", "86400") // 24 hours
 }
@@ -91,7 +91,11 @@ function isAllowedOrigin(origin: string): boolean {
 
   // Allow production domain if set (e.g., https://prodsync.com)
   const allowedDomain = process.env.NEXT_PUBLIC_APP_URL
-  if (allowedDomain && origin === allowedDomain) {
+  if (
+    allowedDomain !== undefined &&
+    allowedDomain !== "" &&
+    origin === allowedDomain
+  ) {
     return true
   }
 

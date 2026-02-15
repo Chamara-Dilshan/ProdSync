@@ -28,7 +28,12 @@ function createUpstashRateLimiter(): Ratelimit | null {
   const upstashUrl = process.env.UPSTASH_REDIS_REST_URL
   const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN
 
-  if (!upstashUrl || !upstashToken) {
+  if (
+    upstashUrl === undefined ||
+    upstashUrl === "" ||
+    upstashToken === undefined ||
+    upstashToken === ""
+  ) {
     console.warn(
       "[RateLimit] Upstash credentials not found. Rate limiting will use in-memory fallback (not suitable for production)."
     )
@@ -48,7 +53,10 @@ function createUpstashRateLimiter(): Ratelimit | null {
       prefix: "prodsync_ratelimit",
     })
   } catch (error) {
-    console.error("[RateLimit] Failed to initialize Upstash rate limiter:", error)
+    console.error(
+      "[RateLimit] Failed to initialize Upstash rate limiter:",
+      error
+    )
     return null
   }
 }
@@ -58,15 +66,15 @@ function createUpstashRateLimiter(): Ratelimit | null {
  */
 class InMemoryRateLimiter {
   private requests: Map<string, number[]> = new Map()
-  private readonly limit: number
+  private readonly maxRequests: number
   private readonly windowMs: number
 
-  constructor(limit: number, windowMs: number) {
-    this.limit = limit
+  constructor(maxRequests: number, windowMs: number) {
+    this.maxRequests = maxRequests
     this.windowMs = windowMs
   }
 
-  async limit(identifier: string): Promise<{
+  limit(identifier: string): Promise<{
     success: boolean
     limit: number
     remaining: number
@@ -76,14 +84,19 @@ class InMemoryRateLimiter {
     const windowStart = now - this.windowMs
 
     // Get existing requests for this identifier
-    let timestamps = this.requests.get(identifier) || []
+    let timestamps = this.requests.get(identifier) ?? []
 
     // Remove expired timestamps
-    timestamps = timestamps.filter((timestamp) => timestamp > windowStart)
+    timestamps = timestamps.filter(
+      (timestamp: number) => timestamp > windowStart
+    )
 
     // Check if limit exceeded
-    const success = timestamps.length < this.limit
-    const remaining = Math.max(0, this.limit - timestamps.length - (success ? 1 : 0))
+    const success = timestamps.length < this.maxRequests
+    const remaining = Math.max(
+      0,
+      this.maxRequests - timestamps.length - (success ? 1 : 0)
+    )
 
     // Add current request if allowed
     if (success) {
@@ -92,15 +105,15 @@ class InMemoryRateLimiter {
     }
 
     // Calculate reset time (when oldest request expires)
-    const oldestTimestamp = timestamps[0] || now
+    const oldestTimestamp = timestamps.length > 0 ? timestamps[0] : now
     const reset = oldestTimestamp + this.windowMs
 
-    return {
+    return Promise.resolve({
       success,
-      limit: this.limit,
+      limit: this.maxRequests,
       remaining,
       reset: Math.ceil(reset / 1000), // Convert to seconds
-    }
+    })
   }
 
   // Cleanup old entries periodically
@@ -108,8 +121,9 @@ class InMemoryRateLimiter {
     const now = Date.now()
     const windowStart = now - this.windowMs
 
-    for (const [identifier, timestamps] of this.requests.entries()) {
-      const validTimestamps = timestamps.filter((t) => t > windowStart)
+    const entries = Array.from(this.requests.entries())
+    for (const [identifier, timestamps] of entries) {
+      const validTimestamps = timestamps.filter((t: number) => t > windowStart)
       if (validTimestamps.length === 0) {
         this.requests.delete(identifier)
       } else {
@@ -127,10 +141,13 @@ const inMemoryLimiter = new InMemoryRateLimiter(
 )
 
 // Cleanup in-memory cache every 5 minutes
-if (!upstashLimiter) {
-  setInterval(() => {
-    inMemoryLimiter.cleanup()
-  }, 5 * 60 * 1000)
+if (upstashLimiter === null) {
+  setInterval(
+    () => {
+      inMemoryLimiter.cleanup()
+    },
+    5 * 60 * 1000
+  )
 }
 
 /**
@@ -140,8 +157,11 @@ function getIdentifier(request: NextRequest): string {
   // Try to get user ID from request (if authenticated)
   // For now, use IP address as identifier
   const forwarded = request.headers.get("x-forwarded-for")
-  const ip = forwarded ? forwarded.split(",")[0] : request.headers.get("x-real-ip")
-  return ip || "anonymous"
+  const ip =
+    forwarded !== null && forwarded !== ""
+      ? forwarded.split(",")[0]
+      : request.headers.get("x-real-ip")
+  return ip !== null && ip !== undefined && ip !== "" ? ip : "anonymous"
 }
 
 /**
@@ -160,11 +180,13 @@ export interface RateLimitResult {
  * @param request - Next.js request object
  * @returns Rate limit result with success status and metadata
  */
-export async function rateLimit(request: NextRequest): Promise<RateLimitResult> {
+export async function rateLimit(
+  request: NextRequest
+): Promise<RateLimitResult> {
   const identifier = getIdentifier(request)
 
   try {
-    if (upstashLimiter) {
+    if (upstashLimiter !== null) {
       // Use Upstash Redis rate limiter (production)
       const result = await upstashLimiter.limit(identifier)
       return {

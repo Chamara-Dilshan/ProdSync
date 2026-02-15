@@ -1,18 +1,27 @@
 import { NextRequest, NextResponse } from "next/server"
+
+// Force dynamic rendering - prevents Vercel static optimization issues
+export const dynamic = "force-dynamic"
 import { getAIProvider } from "@/lib/ai"
 import { AIProvider } from "@/types"
 import { getErrorCode, getErrorMessage, errorIncludes } from "@/types/errors"
 import type { ValidateKeyResponse } from "@/types/api"
 import { rateLimit, createRateLimitResponse } from "@/lib/rate-limit"
-import { verifyCSRF, createCSRFErrorResponse } from "@/lib/csrf"
+import {
+  verifyCSRF,
+  createCSRFErrorResponse,
+  isExtensionRequest,
+} from "@/lib/csrf"
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ValidateKeyResponse>> {
-  // Verify CSRF token
-  const csrfResult = verifyCSRF(request)
-  if (!csrfResult.valid) {
-    return createCSRFErrorResponse(csrfResult)
+  // Verify CSRF token (skip for browser extension requests which use token-based auth)
+  if (!isExtensionRequest(request)) {
+    const csrfResult = verifyCSRF(request)
+    if (!csrfResult.valid) {
+      return createCSRFErrorResponse(csrfResult)
+    }
   }
 
   // Apply rate limiting (10 requests per 60 seconds per IP)

@@ -125,22 +125,33 @@ export default function MessagesPage(): JSX.Element {
       })
 
       if (!response.ok) {
-        const errorData = (await response.json()) as ApiErrorResponse
+        // Parse error response safely (may not be JSON for 405/502/etc.)
+        let errorData: ApiErrorResponse | null = null
+        try {
+          errorData = (await response.json()) as ApiErrorResponse
+        } catch {
+          // Response body is not valid JSON (e.g., empty 405 response)
+        }
+
         // Create detailed error message based on error type
-        let errorMessage = errorData.error ?? "Failed to generate reply"
+        let errorMessage =
+          errorData?.error ?? `Request failed (${response.status})`
 
         // Customize error messages based on error code
         if (response.status === 403 || response.status === 401) {
           errorMessage =
-            errorData.error ??
+            errorData?.error ??
             "Your API key appears to be invalid. Please check your Settings."
+        } else if (response.status === 405) {
+          errorMessage =
+            "API endpoint unavailable. Please try again or contact support."
         } else if (response.status === 429) {
           errorMessage =
-            errorData.error ??
+            errorData?.error ??
             "You've hit the API rate limit. Please wait a moment and try again."
         } else if (response.status >= 500) {
           errorMessage =
-            errorData.error ??
+            errorData?.error ??
             "The AI service is temporarily unavailable. Please try again later."
         }
 

@@ -53,6 +53,25 @@ export interface CSRFVerificationResult {
 }
 
 /**
+ * Check if request originates from a Chrome/Firefox extension
+ *
+ * Extension requests don't need CSRF protection because:
+ * - CSRF exploits cookie-based auth (browser auto-sends cookies)
+ * - Extensions use token-based auth (explicitly sends Bearer token)
+ * - Browsers prevent web pages from spoofing extension origins
+ */
+export function isExtensionRequest(request: NextRequest): boolean {
+  const origin = request.headers.get("origin")
+  if (!origin) {
+    return false
+  }
+  return (
+    origin.startsWith("chrome-extension://") ||
+    origin.startsWith("moz-extension://")
+  )
+}
+
+/**
  * Verify CSRF token from request
  *
  * Checks that:

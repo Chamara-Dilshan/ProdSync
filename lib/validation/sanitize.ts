@@ -17,8 +17,99 @@
  * ```
  */
 
-import DOMPurify from "isomorphic-dompurify"
 import validator from "validator"
+
+/**
+ * Strip all HTML tags from a string (server-safe, no jsdom dependency)
+ *
+ * Handles: <script>, <iframe>, <style>, standard tags, self-closing tags,
+ * HTML comments, and HTML entities for < and >
+ */
+function stripHtmlTags(input: string): string {
+  return input
+    .replace(/<!--[\s\S]*?-->/g, "") // Remove HTML comments
+    .replace(/<script[\s\S]*?<\/script>/gi, "") // Remove script tags and content
+    .replace(/<style[\s\S]*?<\/style>/gi, "") // Remove style tags and content
+    .replace(/<[^>]*>/g, "") // Remove all remaining HTML tags
+    .replace(/&lt;/g, "<") // Decode common entities
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, "/")
+}
+
+/**
+ * Sanitize HTML allowing only safe tags (server-safe, no jsdom dependency)
+ *
+ * Strips all tags except the safe whitelist: b, i, em, strong, u, p, br, ul, ol, li, a
+ * Removes all attributes except href/target/rel on <a> tags
+ */
+function sanitizeHtmlContent(input: string): string {
+  // Remove script/style/iframe/object/embed tags and their content entirely
+  let clean = input
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[\s\S]*?>/gi, "")
+
+  // Remove event handler attributes (onclick, onerror, etc.)
+  clean = clean.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
+  clean = clean.replace(/\s+on\w+\s*=\s*\S+/gi, "")
+
+  // Remove javascript: and data: URLs in attributes
+  clean = clean.replace(/href\s*=\s*["']?\s*javascript:/gi, 'href="')
+  clean = clean.replace(/href\s*=\s*["']?\s*data:/gi, 'href="')
+  clean = clean.replace(/src\s*=\s*["']?\s*javascript:/gi, 'src="')
+  clean = clean.replace(/src\s*=\s*["']?\s*data:/gi, 'src="')
+
+  // Strip disallowed tags but keep their content
+  const allowedTags = new Set([
+    "b",
+    "i",
+    "em",
+    "strong",
+    "u",
+    "p",
+    "br",
+    "ul",
+    "ol",
+    "li",
+    "a",
+  ])
+  clean = clean.replace(
+    /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g,
+    (match, tagName: string) => {
+      const tag = tagName.toLowerCase()
+      if (!allowedTags.has(tag)) {
+        return "" // Remove disallowed tags
+      }
+      // For closing tags, keep as-is
+      if (match.startsWith("</")) {
+        return `</${tag}>`
+      }
+      // For <a> tags, only keep href, target, rel attributes
+      if (tag === "a") {
+        const hrefMatch = match.match(/href\s*=\s*["']([^"']*?)["']/i)
+        const href = hrefMatch !== null ? hrefMatch[1] : ""
+        if (href !== undefined && href !== "") {
+          return `<a href="${href}" rel="noopener noreferrer">`
+        }
+        return "<a>"
+      }
+      // For self-closing tags like <br>
+      if (tag === "br") {
+        return "<br>"
+      }
+      // For other allowed tags, strip all attributes
+      return `<${tag}>`
+    }
+  )
+
+  return clean
+}
 
 /**
  * Maximum lengths for different input types (prevent DoS)
@@ -44,13 +135,15 @@ export function sanitizeText(
   input: string | null | undefined,
   maxLength: number = MAX_LENGTHS.MEDIUM_TEXT
 ): string {
-  if (!input) {return ""}
+  if (input === null || input === undefined || input === "") {
+    return ""
+  }
 
   // Remove null bytes (prevent null byte injection)
   let clean = input.replace(/\0/g, "")
 
   // Strip all HTML tags (prevents XSS)
-  clean = DOMPurify.sanitize(clean, { ALLOWED_TAGS: [] })
+  clean = stripHtmlTags(clean)
 
   // Normalize whitespace
   clean = clean.replace(/\s+/g, " ").trim()
@@ -78,21 +171,15 @@ export function sanitizeHtml(
   input: string | null | undefined,
   maxLength: number = MAX_LENGTHS.LONG_TEXT
 ): string {
-  if (!input) {return ""}
+  if (input === null || input === undefined || input === "") {
+    return ""
+  }
 
   // Remove null bytes
   let clean = input.replace(/\0/g, "")
 
-  // Sanitize HTML with safe whitelist
-  clean = DOMPurify.sanitize(clean, {
-    ALLOWED_TAGS: ["b", "i", "em", "strong", "u", "p", "br", "ul", "ol", "li", "a"],
-    ALLOWED_ATTR: ["href", "target", "rel"],
-    ALLOWED_URI_REGEXP:
-      /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
-  })
-
-  // Add rel="noopener noreferrer" to all links (security best practice)
-  clean = clean.replace(/<a /g, '<a rel="noopener noreferrer" ')
+  // Sanitize HTML with safe whitelist (adds rel="noopener noreferrer" to links)
+  clean = sanitizeHtmlContent(clean)
 
   // Truncate to max length
   if (clean.length > maxLength) {
@@ -115,13 +202,15 @@ export function sanitizeMultilineText(
   input: string | null | undefined,
   maxLength: number = MAX_LENGTHS.LONG_TEXT
 ): string {
-  if (!input) {return ""}
+  if (input === null || input === undefined || input === "") {
+    return ""
+  }
 
   // Remove null bytes
   let clean = input.replace(/\0/g, "")
 
   // Strip HTML tags but preserve line breaks
-  clean = DOMPurify.sanitize(clean, { ALLOWED_TAGS: [] })
+  clean = stripHtmlTags(clean)
 
   // Normalize line breaks (CRLF → LF)
   clean = clean.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
@@ -157,7 +246,9 @@ export function sanitizeNumber(
     decimals?: number
   } = {}
 ): number | null {
-  if (input === null || input === undefined || input === "") {return null}
+  if (input === null || input === undefined || input === "") {
+    return null
+  }
 
   // Convert to string
   const str = String(input)
@@ -171,8 +262,12 @@ export function sanitizeNumber(
   let num = parseFloat(str)
 
   // Check min/max
-  if (options.min !== undefined && num < options.min) {return null}
-  if (options.max !== undefined && num > options.max) {return null}
+  if (options.min !== undefined && num < options.min) {
+    return null
+  }
+  if (options.max !== undefined && num > options.max) {
+    return null
+  }
 
   // Round to specified decimals
   if (options.decimals !== undefined) {
@@ -192,7 +287,9 @@ export function sanitizeNumber(
  * @returns Sanitized email or null if invalid
  */
 export function sanitizeEmail(input: string | null | undefined): string | null {
-  if (!input) {return null}
+  if (input === null || input === undefined || input === "") {
+    return null
+  }
 
   // Trim and lowercase
   const email = input.trim().toLowerCase()
@@ -222,7 +319,9 @@ export function sanitizeUrl(
     allowedProtocols?: string[]
   } = {}
 ): string | null {
-  if (!input) {return null}
+  if (input === null || input === undefined || input === "") {
+    return null
+  }
 
   // Trim
   const url = input.trim()
@@ -233,7 +332,9 @@ export function sanitizeUrl(
     protocols: options.allowedProtocols ?? ["http", "https"],
   })
 
-  if (!isValid) {return null}
+  if (!isValid) {
+    return null
+  }
 
   return url
 }
@@ -253,7 +354,9 @@ export function sanitizeStringArray(
   maxLength: number = MAX_LENGTHS.SHORT_TEXT,
   maxItems: number = 50
 ): string[] {
-  if (!input || !Array.isArray(input)) {return []}
+  if (input === null || input === undefined || !Array.isArray(input)) {
+    return []
+  }
 
   return input
     .map((item) => sanitizeText(item, maxLength))
@@ -342,7 +445,9 @@ export function sanitizeProductData(data: {
     MAX_LENGTHS.MEDIUM_TEXT
   )
   const customizationOptions = sanitizeMultilineText(
-    typeof data.customizationOptions === "string" ? data.customizationOptions : "",
+    typeof data.customizationOptions === "string"
+      ? data.customizationOptions
+      : "",
     MAX_LENGTHS.MEDIUM_TEXT
   )
 
@@ -410,7 +515,10 @@ export function sanitizeMessage(message: unknown): string {
   }
 
   if (clean.length < 3) {
-    throw new ValidationError("Message must be at least 3 characters", "message")
+    throw new ValidationError(
+      "Message must be at least 3 characters",
+      "message"
+    )
   }
 
   return clean

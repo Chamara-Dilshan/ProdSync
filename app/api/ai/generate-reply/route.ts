@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from "next/server"
+
+// Force dynamic rendering - prevents Vercel static optimization issues
+export const dynamic = "force-dynamic"
 import { getAIProvider } from "@/lib/ai"
 import { AIContext, AIProvider, ToneType } from "@/types"
 import { getErrorCode, getErrorMessage, errorIncludes } from "@/types/errors"
 import type { GenerateReplyResponse, ApiErrorResponse } from "@/types/api"
 import { rateLimit, createRateLimitResponse } from "@/lib/rate-limit"
-import { verifyCSRF, createCSRFErrorResponse } from "@/lib/csrf"
+import {
+  verifyCSRF,
+  createCSRFErrorResponse,
+  isExtensionRequest,
+} from "@/lib/csrf"
 import { sanitizeMessage, ValidationError } from "@/lib/validation/sanitize"
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<GenerateReplyResponse | ApiErrorResponse>> {
-  // Verify CSRF token
-  const csrfResult = verifyCSRF(request)
-  if (!csrfResult.valid) {
-    return createCSRFErrorResponse(csrfResult)
+  // Verify CSRF token (skip for browser extension requests which use token-based auth)
+  if (!isExtensionRequest(request)) {
+    const csrfResult = verifyCSRF(request)
+    if (!csrfResult.valid) {
+      return createCSRFErrorResponse(csrfResult)
+    }
   }
 
   // Apply rate limiting (10 requests per 60 seconds per IP)
@@ -50,10 +59,7 @@ export async function POST(
       message = sanitizeMessage(rawMessage)
     } catch (error) {
       if (error instanceof ValidationError) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: error.message }, { status: 400 })
       }
       throw error
     }
