@@ -39,6 +39,7 @@ DEBUG_*.md
 # claude files (local only)
 .claude/
 CLAUDE.md
+docs
 
 # vercel
 .vercel
