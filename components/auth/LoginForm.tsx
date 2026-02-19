@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
-import { getErrorMessage } from "@/types/errors"
+import { getFirebaseAuthError } from "@/types/errors"
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -45,11 +45,10 @@ export function LoginForm(): JSX.Element {
       })
       router.push("/dashboard")
     } catch (error: unknown) {
-      const errorMsg = getErrorMessage(error)
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: errorMsg !== "" ? errorMsg : "Invalid email or password.",
+        description: getFirebaseAuthError(error),
       })
     } finally {
       setIsLoading(false)
@@ -66,12 +65,10 @@ export function LoginForm(): JSX.Element {
       })
       router.push("/dashboard")
     } catch (error: unknown) {
-      const errorMsg = getErrorMessage(error)
       toast({
         variant: "destructive",
         title: "Google sign-in failed",
-        description:
-          errorMsg !== "" ? errorMsg : "Could not sign in with Google.",
+        description: getFirebaseAuthError(error),
       })
     } finally {
       setIsGoogleLoading(false)

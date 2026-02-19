@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Play, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react"
+import { Play, ChevronLeft, ChevronRight } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
@@ -43,11 +43,6 @@ export function DemoSection({
       url: "/screenshots/extension-preview.png",
       alt: "Reply preview before insertion",
       caption: "Review and edit the AI-generated response before sending",
-    },
-    {
-      url: "/screenshots/extension-inserted.png",
-      alt: "Reply inserted into Etsy message box",
-      caption: "Reply automatically inserted - just review and send!",
     },
   ]
 
@@ -119,6 +114,7 @@ export function DemoSection({
                 src={gifUrl}
                 alt="ProdSync Extension Demo"
                 fill
+                sizes="100vw"
                 className="object-contain"
                 unoptimized // GIFs should not be optimized by Next.js
               />
@@ -135,126 +131,80 @@ export function DemoSection({
   // Screenshot carousel mode (default)
   return (
     <Card>
-      <CardContent className="pt-6">
-        <div className="space-y-4">
-          {/* Main screenshot display */}
-          <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border-2 border-border">
-            <div className="absolute inset-0 flex items-center justify-center">
-              {/* Placeholder - will be replaced with actual screenshots */}
-              <div className="text-center space-y-3 p-6">
-                <div className="p-4 bg-muted-foreground/10 rounded-lg inline-block">
-                  <Maximize2 className="h-12 w-12 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="font-semibold text-lg">
-                    {displayScreenshots[currentScreenshot].caption}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Screenshot {currentScreenshot + 1} of{" "}
-                    {displayScreenshots.length}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Replace placeholder with:{" "}
-                    <code className="bg-muted px-1 rounded">
-                      {displayScreenshots[currentScreenshot].url}
-                    </code>
-                  </p>
-                </div>
-              </div>
-              {/* Uncomment when real screenshots are added:
+      <CardContent className="pt-5 pb-5">
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Left half: image preview */}
+          <div className="w-full md:w-1/2">
+            <div className="relative h-[280px] sm:h-[340px] md:h-[380px] rounded-xl overflow-hidden border border-border shadow-md bg-muted">
               <Image
                 src={displayScreenshots[currentScreenshot].url}
                 alt={displayScreenshots[currentScreenshot].alt}
                 fill
+                sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-contain"
               />
-              */}
             </div>
 
-            {/* Navigation arrows */}
+            {/* Prev / Next arrows below image */}
             {displayScreenshots.length > 1 && (
-              <>
+              <div className="flex justify-center gap-2 mt-3">
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="icon"
-                  className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full shadow-lg hover:scale-110 transition-transform"
+                  className="h-8 w-8 rounded-full"
                   onClick={handlePrevious}
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="icon"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full shadow-lg hover:scale-110 transition-transform"
+                  className="h-8 w-8 rounded-full"
                   onClick={handleNext}
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
-              </>
+              </div>
             )}
           </div>
 
-          {/* Caption */}
-          <div className="text-center">
-            <p className="font-medium">
-              {displayScreenshots[currentScreenshot].caption}
-            </p>
-          </div>
-
-          {/* Thumbnail navigation */}
-          {displayScreenshots.length > 1 && (
-            <div className="flex gap-2 justify-center overflow-x-auto pb-2">
-              {displayScreenshots.map((screenshot, index) => (
-                <button
-                  key={index}
-                  onClick={(): void => setCurrentScreenshot(index)}
+          {/* Right half: step list */}
+          <div className="w-full md:w-1/2 flex flex-col justify-center space-y-3">
+            {displayScreenshots.map((screenshot, index) => (
+              <button
+                key={index}
+                onClick={(): void => setCurrentScreenshot(index)}
+                className={cn(
+                  "w-full text-left flex items-start gap-3 p-4 rounded-lg border transition-all",
+                  currentScreenshot === index
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-border hover:border-primary/40 hover:bg-muted/50"
+                )}
+              >
+                <div
                   className={cn(
-                    "flex-shrink-0 w-20 h-14 rounded-lg border-2 transition-all overflow-hidden bg-muted",
+                    "flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold mt-0.5",
                     currentScreenshot === index
-                      ? "border-primary ring-2 ring-primary/20"
-                      : "border-border hover:border-primary/50"
+                      ? "bg-primary text-white"
+                      : "bg-muted text-muted-foreground"
                   )}
                 >
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      {index + 1}
-                    </span>
-                  </div>
-                  {/* Uncomment when real screenshots are added:
-                  <Image
-                    src={screenshot.url}
-                    alt={screenshot.alt}
-                    width={80}
-                    height={56}
-                    className="object-cover w-full h-full"
-                  />
-                  */}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Instructions for adding screenshots */}
-          <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-2">
-            <p className="font-semibold">📸 To add real screenshots:</p>
-            <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-              <li>
-                Add screenshot files to{" "}
-                <code className="bg-muted px-1 rounded">
-                  /public/screenshots/
-                </code>
-              </li>
-              <li>
-                Update the{" "}
-                <code className="bg-muted px-1 rounded">screenshots</code> prop
-                in the extension page
-              </li>
-              <li>
-                Uncomment the{" "}
-                <code className="bg-muted px-1 rounded">Image</code> components
-                in this file
-              </li>
-            </ol>
+                  {index + 1}
+                </div>
+                <div>
+                  <p
+                    className={cn(
+                      "text-sm md:text-base font-medium leading-snug",
+                      currentScreenshot === index
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {screenshot.caption}
+                  </p>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       </CardContent>

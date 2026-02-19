@@ -58,10 +58,12 @@ export default function Login() {
 
   return (
     <div className="extension-popup flex items-center justify-center bg-background p-6">
-      <Card className="w-full">
+      <Card className="w-full border-t-2 border-t-primary">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">ProdSync</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl">
+            <span className="text-primary">Prod</span>Sync
+          </CardTitle>
+          <CardDescription className="text-sm">
             Sign in to generate AI-powered replies for your Etsy messages
           </CardDescription>
         </CardHeader>

@@ -24,7 +24,7 @@ export function createGenerateButton(): HTMLButtonElement {
 
   // Inline styles (can't use external CSS in content script)
   button.style.cssText = `
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #FF6600;
     color: white;
     border: none;
     border-radius: 8px;
@@ -33,20 +33,22 @@ export function createGenerateButton(): HTMLButtonElement {
     font-weight: 600;
     cursor: pointer;
     margin-right: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 6px rgba(255, 102, 0, 0.35);
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   `
 
   // Hover effects
   button.addEventListener("mouseenter", () => {
-    button.style.transform = "translateY(-2px)"
-    button.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)"
+    button.style.background = "#e65c00"
+    button.style.transform = "translateY(-1px)"
+    button.style.boxShadow = "0 4px 10px rgba(255, 102, 0, 0.45)"
   })
 
   button.addEventListener("mouseleave", () => {
+    button.style.background = "#FF6600"
     button.style.transform = "translateY(0)"
-    button.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)"
+    button.style.boxShadow = "0 2px 6px rgba(255, 102, 0, 0.35)"
   })
 
   return button
@@ -170,7 +172,7 @@ function showNotification(message: string): void {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #FF6600;
     color: white;
     padding: 16px 24px;
     border-radius: 8px;

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react"
 import { User } from "firebase/auth"
 import { signOut } from "../../shared/firebase/auth"
 import { createLogger } from "../../shared/utils/logger"
+import { cn } from "../../shared/utils/cn"
 
 const logger = createLogger("GeneratorPopup")
 import { Button } from "../../components/ui/button"
@@ -234,7 +235,9 @@ export default function Generator({ user }: GeneratorProps) {
           logger.info("API keys are not encrypted (plaintext)")
         }
       } else if (settingsResponse.type === "ERROR") {
-        logger.warn("Settings error", { message: settingsResponse.payload.message })
+        logger.warn("Settings error", {
+          message: settingsResponse.payload.message,
+        })
       }
     } catch (error) {
       logger.error("Error loading user data", error)
@@ -251,10 +254,7 @@ export default function Generator({ user }: GeneratorProps) {
       logger.info("Decrypting API keys")
 
       // Decrypt API keys
-      const decryptedKeys = await decryptApiKeys(
-        settings.apiKeys,
-        password
-      )
+      const decryptedKeys = await decryptApiKeys(settings.apiKeys, password)
 
       // Update settings with decrypted keys (provide defaults for optional properties)
       setSettings({
@@ -391,171 +391,216 @@ export default function Generator({ user }: GeneratorProps) {
   // Show password prompt if API keys are encrypted
   if (needsPassword) {
     return (
-      <div className="extension-popup bg-background p-4 space-y-4 max-w-md">
-        <div className="flex items-center justify-between mb-4">
+      <div className="extension-popup bg-background max-w-md">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
           <div>
-            <h2 className="text-lg font-semibold">ProdSync</h2>
+            <div className="flex items-center gap-0.5">
+              <span className="text-base font-bold text-primary">Prod</span>
+              <span className="text-base font-bold">Sync</span>
+            </div>
             <p className="text-xs text-muted-foreground">
-              {user.displayName || user.email}
+              {user.displayName ?? user.email}
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleSignOut}>
+          <button
+            onClick={handleSignOut}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
             Sign Out
-          </Button>
+          </button>
         </div>
-        <PasswordPrompt
-          onPasswordSubmit={handlePasswordSubmit}
-          title="Enter Password to Decrypt API Keys"
-          description="Your API keys are encrypted. Enter your account password to decrypt them."
-          loading={isDecrypting}
-        />
+        <div className="p-4">
+          <PasswordPrompt
+            onPasswordSubmit={handlePasswordSubmit}
+            title="Enter Password to Decrypt API Keys"
+            description="Your API keys are encrypted. Enter your account password to decrypt them."
+            loading={isDecrypting}
+          />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="extension-popup bg-background p-4 space-y-4 max-w-md">
-      <div className="flex items-center justify-between">
+    <div className="extension-popup bg-background max-w-md">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b">
         <div>
-          <h2 className="text-lg font-semibold">ProdSync</h2>
+          <div className="flex items-center gap-0.5">
+            <span className="text-base font-bold text-primary">Prod</span>
+            <span className="text-base font-bold">Sync</span>
+          </div>
           <p className="text-xs text-muted-foreground">
-            {user.displayName || user.email}
+            {user.displayName ?? user.email}
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleSignOut}>
+        <button
+          onClick={handleSignOut}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
           Sign Out
-        </Button>
+        </button>
       </div>
 
-      {/* Buyer Message */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Buyer Message</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center py-4">
-              <div className="animate-spin h-6 w-6 border-3 border-primary border-t-transparent rounded-full"></div>
-              <p className="ml-2 text-xs text-muted-foreground">Loading...</p>
-            </div>
-          ) : error ? (
-            <div className="text-center py-2">
-              <p className="text-xs text-destructive mb-2">{error}</p>
-              <Button variant="outline" size="sm" onClick={loadBuyerMessage}>
-                Retry
-              </Button>
-            </div>
-          ) : buyerMessage ? (
-            <div className="bg-muted p-2 rounded text-xs whitespace-pre-wrap max-h-24 overflow-y-auto">
-              {buyerMessage}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">No message detected</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Reply Configuration */}
-      {buyerMessage && !isLoading && !error && (
-        <>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Reply Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {/* Tone Selector */}
-              <div>
-                <Label className="text-xs">Tone</Label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  {(
-                    ["professional", "friendly", "formal", "casual"] as const
-                  ).map((tone) => (
-                    <Button
-                      key={tone}
-                      variant={selectedTone === tone ? "default" : "outline"}
-                      size="sm"
-                      className="text-xs capitalize"
-                      onClick={() => setSelectedTone(tone)}
-                    >
-                      {tone}
-                    </Button>
-                  ))}
-                </div>
+      <div className="p-4 space-y-3">
+        {/* Buyer Message */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+              💬 Buyer Message
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center py-3">
+                <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full flex-shrink-0"></div>
+                <p className="ml-2 text-xs text-muted-foreground">
+                  Finding buyer message...
+                </p>
               </div>
+            ) : error ? (
+              <div className="text-center py-2">
+                <p className="text-xs text-destructive mb-2">{error}</p>
+                <Button variant="outline" size="sm" onClick={loadBuyerMessage}>
+                  Retry
+                </Button>
+              </div>
+            ) : buyerMessage ? (
+              <div className="bg-orange-50 border border-orange-100 rounded-lg p-2.5 text-xs text-gray-700 whitespace-pre-wrap max-h-24 overflow-y-auto leading-relaxed">
+                {buyerMessage}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground py-1">
+                No message detected
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
-              {/* Product Selector */}
-              {products.length > 0 && (
+        {/* Reply Configuration */}
+        {buyerMessage && !isLoading && !error && (
+          <>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">
+                  ⚙️ Reply Settings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Tone Selector */}
                 <div>
-                  <Label className="text-xs">
-                    Products ({selectedProducts.length} selected)
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Tone
                   </Label>
-                  <div className="mt-1 max-h-32 overflow-y-auto border rounded p-2 space-y-1">
-                    {products.slice(0, 10).map((product) => (
-                      <label
-                        key={product.id}
-                        className="flex items-center space-x-2 cursor-pointer"
+                  <div className="flex gap-1.5 flex-wrap mt-1.5">
+                    {(
+                      ["professional", "friendly", "formal", "casual"] as const
+                    ).map((tone) => (
+                      <button
+                        key={tone}
+                        onClick={() => setSelectedTone(tone)}
+                        className={cn(
+                          "px-3 py-1 rounded-full text-xs font-medium border transition-colors capitalize",
+                          selectedTone === tone
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-muted-foreground border-input hover:border-primary hover:text-primary"
+                        )}
                       >
-                        <input
-                          type="checkbox"
-                          checked={selectedProducts.includes(product.id)}
-                          onChange={() => toggleProduct(product.id)}
-                          className="rounded"
-                        />
-                        <span className="text-xs truncate">{product.name}</span>
-                      </label>
+                        {tone}
+                      </button>
                     ))}
                   </div>
                 </div>
-              )}
 
-              {/* Generate Button */}
-              <Button
-                onClick={handleGenerateReply}
-                disabled={isGenerating || !settings}
-                className="w-full"
-                size="sm"
-              >
-                {isGenerating ? "Generating..." : "Generate Reply"}
-              </Button>
+                {/* Product Selector */}
+                {products.length > 0 && (
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      Products
+                      {selectedProducts.length > 0 && (
+                        <span className="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded-full font-semibold">
+                          {selectedProducts.length}
+                        </span>
+                      )}
+                    </Label>
+                    <div className="mt-1.5 max-h-32 overflow-y-auto border rounded-lg divide-y">
+                      {products.slice(0, 10).map((product) => (
+                        <label
+                          key={product.id}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1.5 hover:bg-orange-50 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedProducts.includes(product.id)}
+                            onChange={() => toggleProduct(product.id)}
+                            className="rounded accent-orange-500 flex-shrink-0"
+                          />
+                          <span className="text-xs truncate text-foreground">
+                            {product.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-              {generationError && (
-                <p className="text-xs text-destructive">{generationError}</p>
-              )}
-            </CardContent>
-          </Card>
+                {/* Generate Button */}
+                <Button
+                  onClick={handleGenerateReply}
+                  disabled={isGenerating || !settings}
+                  className="w-full font-medium"
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="animate-spin h-3.5 w-3.5 border-2 border-primary-foreground border-t-transparent rounded-full mr-2"></div>
+                      Generating...
+                    </>
+                  ) : (
+                    <>✨ Generate Reply</>
+                  )}
+                </Button>
 
-          {/* Generated Reply */}
-          {generatedReply && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Generated Reply</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="bg-muted p-2 rounded text-xs whitespace-pre-wrap max-h-48 overflow-y-auto">
-                  {generatedReply}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopyReply}
-                    className="flex-1 text-xs"
-                  >
-                    Copy
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleInsertReply}
-                    className="flex-1 text-xs"
-                  >
-                    Insert into Etsy
-                  </Button>
-                </div>
+                {generationError && (
+                  <p className="text-xs text-destructive">{generationError}</p>
+                )}
               </CardContent>
             </Card>
-          )}
-        </>
-      )}
+
+            {/* Generated Reply */}
+            {generatedReply && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                    <span className="text-green-600">✓</span> Reply Ready
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed">
+                    {generatedReply}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyReply}
+                      className="flex-1 text-xs"
+                    >
+                      Copy
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleInsertReply}
+                      className="flex-1 text-xs font-medium"
+                    >
+                      Insert into Etsy
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

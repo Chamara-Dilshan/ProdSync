@@ -22,8 +22,12 @@ function App() {
     return (
       <div className="extension-popup flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-          <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
+          <div className="mb-4 flex items-center justify-center gap-0.5">
+            <span className="text-2xl font-bold text-primary">Prod</span>
+            <span className="text-2xl font-bold">Sync</span>
+          </div>
+          <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <p className="mt-3 text-xs text-muted-foreground">Loading...</p>
         </div>
       </div>
     )

@@ -9,7 +9,13 @@ import { useState, FormEvent } from "react"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card"
 
 export interface PasswordPromptProps {
   /** Callback when password is submitted */
@@ -52,9 +58,7 @@ export function PasswordPrompt({
       setPassword("")
     } catch (err) {
       // Error during decryption
-      setError(
-        err instanceof Error ? err.message : "Failed to verify password"
-      )
+      setError(err instanceof Error ? err.message : "Failed to verify password")
     }
   }
 
@@ -96,15 +100,15 @@ export function PasswordPrompt({
                 className="w-full"
               />
               {error !== null && (
-                <p className="text-sm text-red-500">{error}</p>
+                <p className="text-sm text-destructive">{error}</p>
               )}
             </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div className="rounded-lg border border-border bg-muted p-3">
               <div className="flex items-start gap-2">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 mt-0.5 text-gray-500"
+                  className="h-4 w-4 mt-0.5 text-muted-foreground"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >
@@ -115,12 +119,12 @@ export function PasswordPrompt({
                   />
                 </svg>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-gray-700">
+                  <p className="text-sm font-medium text-foreground">
                     Why do I need to enter my password?
                   </p>
-                  <p className="text-xs text-gray-600">
-                    Your API keys are encrypted using your account password
-                    for security. Only you can decrypt them with your password.
+                  <p className="text-xs text-muted-foreground">
+                    Your API keys are encrypted using your account password for
+                    security. Only you can decrypt them with your password.
                   </p>
                 </div>
               </div>
